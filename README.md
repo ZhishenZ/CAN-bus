@@ -28,43 +28,40 @@ sudo ip link set can0 type can bitrate 500000
 sudo ip link set can0 up
 ```
 
+
+
 ## MCP2515
+
+### Wiring
+
+
+|Rspi pin|label|MCP2515 Pin|
+|---|---|------|
+|02 |5V | VCC  |
+|06 |GND | GND  |
+|19 |GPIO 10 | SI(MOSI)  |
+|21 |GPIO 9 | SO(MISO) |
+|22 |GPIO 25 | INT  |
+|23 |GPIO 11 | SCK  |
+|24 |GPIO 8 | CS  |
+
+
+check the device tree in `/boot/overlays/README`
+
+
+Add the following in the `/boot/config.txt` file. 
+```
+dtparam=spi=on
+dtoverlay=mcp2515-can0,oscillator=8000000,interrupt=25
+dtoverlay=spi1-1cs
+``` 
+
+`dmesg |grep spi` 
+https://forums.raspberrypi.com/viewtopic.php?t=196733
 ```
 sudo ip link set can0 up type can bitrate 500000
 ```
-
+loopback to check 
 ```
-pi@raspberrypi:~/CAN-bus $ python can_rec.py 
-Timestamp: 1655497028.113329        ID: 0100    S Rx                DL:  8    00 01 02 03 04 05 06 07     Channel: can0
-Timestamp: 1655497029.123062        ID: 0100    S Rx                DL:  8    01 02 03 04 05 06 07 08     Channel: can0
-Timestamp: 1655497030.130317        ID: 0100    S Rx                DL:  0                                Channel: can0
-Timestamp: 1655497031.137020        ID: 0100    S Rx                DL:  8    03 04 05 06 07 08 09 0a     Channel: can0
-Timestamp: 1655497032.143140        ID: 0100    S Rx                DL:  8    04 05 06 07 08 09 0a 0b     Channel: can0
-Timestamp: 1655497033.148966        ID: 0100    S Rx                DL:  8    05 06 07 08 09 0a 0b 0c     Channel: can0
-Timestamp: 1655497034.154008        ID: 0100    S Rx                DL:  4    03 03 84 04                 Channel: can0
-Timestamp: 1655497035.158772        ID: 0100    S Rx                DL:  8    07 08 09 0a 0b 0c 0d 0e     Channel: can0
-Timestamp: 1655497036.161426        ID: 0100    S Rx                DL:  8    08 09 0a 0b 0c 0d 0e 0f     Channel: can0
-Timestamp: 1655497037.164074        ID: 0100    S Rx                DL:  8    09 0a 0b 0c 0d 0e 0f 10     Channel: can0
-Timestamp: 1655497038.166736        ID: 0100    S Rx                DL:  8    0a 0b 0c 0d 0e 0f 10 11     Channel: can0
-Timestamp: 1655497039.169337        ID: 0100    S Rx                DL:  8    0b 0c 0d 0e 0f 88 08 89     Channel: can0
-Timestamp: 1655497040.172027        ID: 0100    S Rx                DL:  8    0c 0d 0e 0f 10 11 12 13     Channel: can0
-Timestamp: 1655497041.174517        ID: 0100    S Rx                DL:  8    0d 0e 0f 10 11 12 13 14     Channel: can0
-Timestamp: 1655497042.177111        ID: 0100    S Rx                DL:  8    0e 0f 10 11 12 13 14 15     Channel: can0
-Timestamp: 1655497043.179633        ID: 0100    S Rx                DL:  8    0f 10 11 12 13 14 15 16     Channel: can0
-Timestamp: 1655497044.182244        ID: 0100    S Rx                DL:  8    10 11 12 13 14 15 16 17     Channel: can0
-Timestamp: 1655497045.184741        ID: 0080    S Rx                DL:  1    81                          Channel: can0
-Timestamp: 1655497046.187271        ID: 0100    S Rx                DL:  8    12 13 14 15 16 17 18 19     Channel: can0
-Timestamp: 1655497046.187377        ID: 009f    S Rx   R            DL:  7                                Channel: can0
-Timestamp: 1655497046.187443        ID: 0004    S Rx E              DL:  8    00 20 00 00 00 00 00 00     Channel: can0
-Timestamp: 1655497046.187462        ID: 07ee    S Tx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.188326        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.197466        ID: 0100    S Rx                DL:  8    12 13 14 15 16 17 18 19     Channel: can0
-Timestamp: 1655497046.197580        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.199466        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.202694        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.204402        ID: 0004    S Rx E              DL:  8    00 20 00 00 00 00 00 00     Channel: can0
-Timestamp: 1655497046.204437        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.204695        ID: 009f    S Rx   R            DL:  7                                Channel: can0
-Timestamp: 1655497046.206508        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-Timestamp: 1655497046.207408        ID: 07ee    S Rx                DL:  6    00 01 03 01 04 01           Channel: can0
-``` 
+sudo ip link set can0 up type can bitrate 500000 loopback on
+```
