@@ -73,3 +73,22 @@ loopback to check
 ```
 sudo ip link set can0 up type can bitrate 500000 loopback on
 ```
+check the can bus connection locally 
+``` 
+cangen can0
+````
+open another terminal to receive
+```
+candump can0
+```
+
+
+## if the INT wiring is wrong, 
+
+the terminal does not respond after typing a `sudo ip link ...` command, however when checking the can bus connection with`ip a`, the right message will still show up.
+
+in `/dev/`path, there is no `spidev0.0` 
+```
+ls /dev/spi*
+>> /dev/spidev0.1 /dev/spidev1.0
+```
