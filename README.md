@@ -65,3 +65,11 @@ loopback to check
 ```
 sudo ip link set can0 up type can bitrate 500000 loopback on
 ```
+check the can bus connection locally 
+``` 
+cangen can0
+````
+open another terminal to receive
+```
+candump can0
+```
