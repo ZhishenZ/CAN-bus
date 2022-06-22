@@ -58,6 +58,14 @@ dtoverlay=spi1-1cs
 
 `dmesg |grep spi` 
 https://forums.raspberrypi.com/viewtopic.php?t=196733
+
+
+**Check if the hardware is successfully mounted**
+```
+pi@raspberrypi:~ $ ls /sys/bus/spi/devices/spi1.0/net/
+can0
+```
+
 ```
 sudo ip link set can0 up type can bitrate 500000
 ```
