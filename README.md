@@ -144,3 +144,86 @@ pi@raspberrypi:~/CAN-bus $ ip a
 4: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UP group default qlen 10
     link/can 
 ```
+
+### SDO write
+`mc.Can.SdoWr(NodeId, 0x4732(addr), 1(sub_addr), 123(data)) `
+```
+"67D";"8";"23 32 47 01 7B 00 00 00"
+^^^^^ 0x600+NodeID  
+
+"67D";"8";"23 32 47 01 7B 00 00 00"
+      ^^^ Can message length always 8 
+
+"67D";"8";"23 32 47 01 7B 00 00 00"
+           ^^ for sdo write here 23 (1 byte)
+
+"67D";"8";"23 32 47 01 7B 00 00 00"
+              ^^^^^ address 0x4732 (2 bytes) 
+
+"67D";"8";"23 32 47 01 7B 00 00 00"
+                    ^^ sub address 0x01 (1 byte)
+"67D";"8";"23 32 47 01 7B 00 00 00"
+                       ^^^^^^^^^^^ can message (4 bytes)
+```
+Example
+```
+
+# Parameter: NodeId
+NodeId = 127                                            # Node Id
+mc.Can.SdoWr(NodeId, 0x4732, 1, 123)                    # Position following error - window
+mc.Can.SdoWr(NodeId, 0x473B, 2, 456)
+mc.Can.SdoWr(NodeId, 0x4310, 1, 10000)
+mc.Can.SdoWr(NodeId, 0x4310, 1, 100000)
+
+
+"Bus";"No";"Time (abs)";"State";"ID (hex)";"DLC";"Data (hex)";"ASCII"
+"USB-to-CAN V2 compact  CAN-1";"13";"00:03:03.521";"      ";"67F";"8";"23 32 47 01 7B 00 00 00";"#2G.{..."
+"USB-to-CAN V2 compact  CAN-1";"14";"00:03:03.522";"      ";"5FF";"8";"60 32 47 01 00 00 00 00";"`2G....."
+"USB-to-CAN V2 compact  CAN-1";"15";"00:03:03.523";"      ";"67F";"8";"23 3B 47 02 C8 01 00 00";"#;G....."
+"USB-to-CAN V2 compact  CAN-1";"16";"00:03:03.523";"      ";"5FF";"8";"60 3B 47 02 00 00 00 00";"`;G....."
+"USB-to-CAN V2 compact  CAN-1";"17";"00:03:03.525";"      ";"67F";"8";"23 10 43 01 10 27 00 00";"#.C..'.."
+"USB-to-CAN V2 compact  CAN-1";"18";"00:03:03.527";"      ";"5FF";"8";"60 10 43 01 00 00 00 00";"`.C....."
+"USB-to-CAN V2 compact  CAN-1";"19";"00:03:03.529";"      ";"67F";"8";"23 10 43 01 A0 86 01 00";"#.C....."
+"USB-to-CAN V2 compact  CAN-1";"20";"00:03:03.531";"      ";"5FF";"8";"60 10 43 01 00 00 00 00";"`.C....."
+
+```
+
+
+### SDO read
+msg = mc.Can.SdoRd(NodeId, 0x4310, 1)  
+`mc.Can.SdoRd(NodeId, 0x4310(addr), 1(sub_addr)) `
+```
+"67F";"8";"40 10 43 01 00 00 00 00"
+^^^^^ 0x600+NodeID  
+
+"67F";"8";"40 10 43 01 00 00 00 00"
+      ^^^ Can message length always 8 
+
+"67F";"8";"40 10 43 01 00 00 00 00"
+           ^^ for sdo write here 23 (1 byte)
+
+"67F";"8";"40 10 43 01 00 00 00 00"
+              ^^^^^ address 0x4310 (2 bytes) 
+
+"67F";"8";"40 10 43 01 00 00 00 00"
+                    ^^ sub address 0x01 (1 byte)
+
+"67F";"8";"40 10 43 01 00 00 00 00"
+                       ^^^^^^^^^^^ can message here for read is always 0
+```
+
+Example
+```
+msg = mc.Can.SdoRd(NodeId, 0x4310, 1)  
+
+
+
+
+"Bus";"No";"Time (abs)";"State";"ID (hex)";"DLC";"Data (hex)";"ASCII"
+"USB-to-CAN V2 compact  CAN-1";"29";"00:15:46.285";"      ";"67F";"8";"40 10 43 01 00 00 00 00";"@.C....."
+"USB-to-CAN V2 compact  CAN-1";"30";"00:15:46.285";"      ";"5FF";"8";"4B 10 43 01 A0 86 00 00";"K.C....."
+```
+
+
+
+

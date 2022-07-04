@@ -1,4 +1,14 @@
-/*This is a socket CAN transmiter test programmer*/
+/**
+ * @file can_send.c
+ * @author Zhishen Z. (zzsubt@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2022-07-01
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,15 +73,15 @@ int can_send_init(struct can_frame frame, int *s, struct ifreq ifr, struct socka
     return 0;
 }
 
-
-void close_can_send(int *s){
-
-    /*Close the socket and can0 */
-    close(*s);
-    system("sudo ifconfig can0 down");
-
-}
-
+/**
+ * @brief send the data to CAN bus
+ * 
+ * @param s 
+ * @param frame 
+ * @param can_id 
+ * @param data 
+ * @param data_len 
+ */
 void send_data( int s, struct can_frame frame, int can_id, uint8_t* data, uint8_t data_len){
 
     int i;
@@ -89,6 +99,20 @@ void send_data( int s, struct can_frame frame, int can_id, uint8_t* data, uint8_
     }
 
 }
+
+/**
+ * @brief close and clean up 
+ * 
+ * @param s 
+ */
+void close_can_send(int *s){
+
+    /*Close the socket and can0 */
+    close(*s);
+    system("sudo ifconfig can0 down");
+
+}
+
 
 int main()
 {
@@ -112,8 +136,7 @@ int main()
 
     data[0] = 1;
     data[1] = 2;
-    send_data(s, frame, 1, data , 5);
-
+    send_data(s, frame, 1, data , 5);  
 
 
     close_can_send(&s);
