@@ -50,6 +50,13 @@ mc.Can.SdoWr(NodeId, 0x4211, 1, 100)                     # PI Current controller
 mc.Can.SdoWr(NodeId, 0x4221, 1, 20000)                    # Current limit - max. positive in mA
 mc.Can.SdoWr(NodeId, 0x4223, 1, 20000)                    # Current limit - max. negative in mA
 
+
+
+########TODO########################
+
+
+
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Ramps
 # Acceleration = delta V / delta T
@@ -93,7 +100,7 @@ mc.Can.SdoWr(NodeId, 0x1A00, 0, 2)                       # write numbers of obje
 
 # Tansmissiontype
 mc.Can.SdoWr(NodeId, 0x1800, 2, 255)                     # asynchronous (see above)
-mc.Can.SdoWr(NodeId, 0x1800, 3, 200)                     # inhibit time in 100µs
+mc.Can.SdoWr(NodeId, 0x1800, 3, 200)                     # inhibit time in 100ï¿½s
 
 
 
@@ -112,7 +119,7 @@ mc.Can.SdoWr(NodeId, 0x1A01, 0, 3)                       # write numbers of obje
 
 # Tansmissiontype
 mc.Can.SdoWr(NodeId, 0x1801, 2, 255)                     # asynchronous (see above)
-mc.Can.SdoWr(NodeId, 0x1801, 3, 200)                     # inhibit time in 100µs
+mc.Can.SdoWr(NodeId, 0x1801, 3, 200)                     # inhibit time in 100ï¿½s
 
 
 
@@ -129,7 +136,7 @@ mc.Can.SdoWr(NodeId, 0x1A02, 0, 2)                       # write numbers of obje
 
 # Tansmissiontype
 mc.Can.SdoWr(NodeId, 0x1802, 2, 255)                     # asynchronous (see above)
-mc.Can.SdoWr(NodeId, 0x1802, 3, 200)                     # inhibit time in 100µs
+mc.Can.SdoWr(NodeId, 0x1802, 3, 200)                     # inhibit time in 100ï¿½s
 
 
 
@@ -145,7 +152,7 @@ mc.Can.SdoWr(NodeId, 0x1A03, 0, 2)                       # write numbers of obje
 
 # Tansmissiontype
 mc.Can.SdoWr(NodeId, 0x1803, 2, 255)                     # asynchronous (see above)
-mc.Can.SdoWr(NodeId, 0x1803, 3, 200)                     # inhibit time in 100µs
+mc.Can.SdoWr(NodeId, 0x1803, 3, 200)                     # inhibit time in 100ï¿½s
 
 
 #-----------------------------------------------------------------------------------------------------------------------
