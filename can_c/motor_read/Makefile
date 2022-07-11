@@ -1,5 +1,5 @@
 PROG = motor_config
-LIB = can_send
+LIB = can_lib
 CC = gcc
 
 $(PROG): $(PROG).c

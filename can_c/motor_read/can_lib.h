@@ -25,4 +25,9 @@ void Can_Sdo_Write( uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t d
 
 void Can_Sdo_Read( uint16_t can_id, uint16_t addr, uint8_t sub_addr);
 
+void Can_Pdo_Write(uint16_t can_id, uint8_t* data_array, uint8_t array_len);
+
+void Can_Read();
+//mc.Can.PdoWr(0, [0x80, NodeId]) # motor in pre-operational mode to stop PDOs
+
 #endif // CAN_SEND_H

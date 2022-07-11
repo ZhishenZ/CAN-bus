@@ -1,4 +1,4 @@
-#include "can_send.h"
+#include "can_lib.h"
 
 /*Global Variables*/
 int s;
@@ -39,7 +39,8 @@ int can_send_init( struct ifreq ifr, struct sockaddr_can addr){
     }
 
     /*Disable filtering rules,this program only send message do not receive packets */
-    setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
+    /* since we also need to receive message from the CAN bus, we do not set any filter. */
+    // setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
 
     return 0;
 }
@@ -112,4 +113,41 @@ void Can_Sdo_Read( uint16_t can_id, uint16_t addr, uint8_t sub_addr){
         system("sudo ifconfig can0 down");
     }
 
+}
+
+void Can_Pdo_Write(uint16_t can_id, uint8_t* data_array, uint8_t array_len){
+
+    frame.can_id = can_id;
+    frame.can_dlc = array_len;
+    for (int i = 0; i< array_len; i++){
+        frame.data[i] = data_array[i];
+    }
+    int ret = write(s, &frame, sizeof(frame)); 
+    if(ret != sizeof(frame)) {
+        printf("Send  frame incompletely!\r\n");
+        system("sudo ifconfig can0 down");
+    }
+
+
+}
+
+void Can_Read(){
+
+
+    while(1) {
+    int nbytes = read(s, &frame, sizeof(frame));
+    if(nbytes > 0) {
+        if(!(frame.can_id&CAN_EFF_FLAG))
+        //if(frame.can_id&0x80000000==0)
+            printf("Received standard frame!\n");
+        else
+            printf("Received extended frame!\n");
+        printf("can_id = 0x%X\r\ncan_dlc = %d \r\n", frame.can_id&0x1FFFFFFF, frame.can_dlc);
+        for(int i = 0; i < 8; i++)
+            printf("data[%d] = %d\r\n", i, frame.data[i]);
+            break;
+        // mask below sentense to receive all the time other wise can only receive one time!
+        // break;
+        }
+    }
 }
