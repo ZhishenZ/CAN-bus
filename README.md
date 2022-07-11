@@ -256,13 +256,15 @@ record_with_another_thread_PDO();
 // the tirger commes, jump out of the current function.
 
 write_sdo();
-record_PDO_and_chck_sdo();//this function can listen both sdo and PDO response from the motor, it stops record when a sdo message shows up. 
+record_PDO_and_chck_sdo();//this function can listen both sdo and PDO response from the motor,
+                          //it stops record when a sdo message shows up. 
 record_with_another_thread_PDO();// function breaks when some condition is triggered
 
 //...
 
 write_sdo()
-record_PDO_and_chck_sdo();//this function can listen both sdo and PDO response from the motor, it stops record when a sdo message shows up. 
+record_PDO_and_chck_sdo();//this function can listen both sdo and PDO response from the motor, 
+                          // it stops record when a sdo message shows up. 
 record_with_another_thread_PDO();// function breaks when some condition is triggered
 
 
