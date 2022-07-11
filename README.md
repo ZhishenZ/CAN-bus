@@ -226,4 +226,49 @@ msg = mc.Can.SdoRd(NodeId, 0x4310, 1)
 
 
 
+### TODO
+
+1. Check if the response of the motor prompts the right answer. (1. time out, 2: motor error. )
+   1. can message`80 11 41 01 02 00 01 06` only 80 matters it is a motor error. If so, prompts an error and then send the error message. 
+   2. If there is a time out, error message. 
+2. Record the PDO data (which have the index numbers 1FF. 2FF. 3FF, 4FF ) in a csv file with time. The detailed information is in the email. 
+
+
+
+``` c
+// Motor configuration 
+
+write_sdo();
+check_sdo();
+write_sdo();
+check_sdo();
+
+// ...
+
+// Now comes the PDO to get the motor data
+write_PDO();
+
+// ---------AFTER WE POWER UP PDO---------
+record_with_another_thread_PDO();
+// some condition is triggered, and then break the PDO recording thread
+
+// ... wait for some trigger to set the new motor state
+// the tirger commes, jump out of the current function.
+
+write_sdo();
+record_PDO_and_chck_sdo();//this function can listen both sdo and PDO response from the motor, it stops record when a sdo message shows up. 
+record_with_another_thread_PDO();// function breaks when some condition is triggered
+
+//...
+
+write_sdo()
+record_PDO_and_chck_sdo();//this function can listen both sdo and PDO response from the motor, it stops record when a sdo message shows up. 
+record_with_another_thread_PDO();// function breaks when some condition is triggered
+
+
+write_sdo();// the last sdo message to disable power
+check_sdo();// check the mesage
+
+close_can();
+```
 

@@ -18,6 +18,11 @@ int main()
     uint16_t EncoderLines = 1024;
     uint16_t EncoderResolution = EncoderLines * 4;
 
+    // test for some error messages 
+    // Can_Sdo_Write(NodeId, 0x4111, 1, 10);             // Encoder feedback for the velocity controller
+    // Can_Read();
+
+
 //  Controller Feedback (encoder OR hall sensors)
     // Encoder Feedback
     Can_Sdo_Write(NodeId, 0x4350, 1, 0x96A);             // Encoder feedback for the velocity controller
@@ -246,9 +251,7 @@ int main()
     Can_Read();
     usleep(100 * 1000);                        // 100ms delay for power stage to be enabled
 
-    uint8_t pdo_data_1[2] = {0x01, NodeId};
-    Can_Pdo_Write(0,pdo_data_1,sizeof(pdo_data_1)/sizeof(pdo_data_1)[0]);
-    Can_Read();
+    
     // data=[0x01, NodeId,0x00,0x00...]
     // mc.Can.PdoWr(0, data) # motor in operational mode to star to send PDOs
 
@@ -259,12 +262,23 @@ int main()
     Can_Read();
 
     Can_Sdo_Write(NodeId, 0x4791, 1, 4096);                 // Relative positioning 4000 counts (hall or encoder)
-    usleep(500 * 1000); 
+    Can_Read(); 
+
+    uint8_t pdo_data_1[2] = {0x01, NodeId};
+    Can_Pdo_Write(0,pdo_data_1,sizeof(pdo_data_1)/sizeof(pdo_data_1)[0]);
+
+     for (int ii ; ii < 20 ;ii++){
+         printf("PDO\n");
+        Can_Read();
+     }
 
     uint8_t pdo_data_2[2] = {0x80, NodeId};
     //mc.Can.PdoWr(0, [0x80, NodeId]) # motor in pre-operational mode to stop PDOs
     Can_Pdo_Write(0,pdo_data_2,sizeof(pdo_data_2)/sizeof(pdo_data_2)[0]);
+
+    Can_Sdo_Write(NodeId, 0x4004, 1, 0);        // Disable power stage
     Can_Read();
+   
     
 
 
