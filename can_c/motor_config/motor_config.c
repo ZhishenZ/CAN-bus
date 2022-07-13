@@ -193,8 +193,8 @@ int main()
      * 
      */
  
-    Can_Sdo_Write(NodeId, 0x4000, 1, 1)        // Reset error register
-    Can_Sdo_Write(NodeId, 0x4004, 1, 1)        // Enable power stage
+    Can_Sdo_Write(NodeId, 0x4000, 1, 1);        // Reset error register
+    Can_Sdo_Write(NodeId, 0x4004, 1, 1);        // Enable power stage
     usleep(100 * 1000);                        // 100ms delay for power stage to be enabled
     // data=[0x01, NodeId,0x00,0x00...]
     // mc.Can.PdoWr(0, data) # motor in operational mode to star to send PDOs
@@ -202,9 +202,9 @@ int main()
     //mc.Can.SendTwo(0, 0x01, NodeId) # motor in operational mode to star to send PDOs
 
 
-    Can_Sdo_Write(NodeId, 0x4300, 0x01, 100)               # VEL_DesiredValue [rpm]
+    Can_Sdo_Write(NodeId, 0x4300, 0x01, 100);               // VEL_DesiredValue [rpm]
 
-    Can_Sdo_Write(NodeId, 0x4791, 1, 4096)                 # Relative positioning 4000 counts (hall or encoder)
+    Can_Sdo_Write(NodeId, 0x4791, 1, 4096);                 // Relative positioning 4000 counts (hall or encoder)
     usleep(500 * 1000); 
 
     //mc.Can.PdoWr(0, [0x80, NodeId]) # motor in pre-operational mode to stop PDOs

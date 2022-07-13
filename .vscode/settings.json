@@ -2,6 +2,7 @@
     "files.associations": {
         "can_send.h": "c",
         "exception": "c",
-        "new": "c"
+        "new": "c",
+        "limits": "cpp"
     }
 }
