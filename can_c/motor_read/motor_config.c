@@ -154,13 +154,6 @@ int main()
      */
     // usleep(5 * 1000
 
-
-
-
-
-
-
-
     // ////////// 2nd TX-PDO //////////
     TXCobId = 0x280 + NodeId; // CobId for the second TX-PDO (motor is sending     2
     RXCobId = 0x300 + NodeId; // CobId for the second RX-PDO (motor is receiving)   2
@@ -235,11 +228,6 @@ int main()
     Can_Sdo_Write(NodeId, 0x1803, 3, 200); // inhibit time in 100
     Can_Sdo_read_and_check(NodeId, 0x1803, 3);
 
-
-
-
-
-
     //-----------------------------------------------------------------------------------------------------------------------
     /**
      * @brief Start of the test program
@@ -268,30 +256,42 @@ int main()
     Can_Sdo_Write(NodeId, 0x4791, 1, 4096); // Relative positioning 4000 counts (hall or encoder)
     Can_Sdo_read_and_check(NodeId, 0x4791, 1);
 
+    /*start the PDO*/
     uint8_t pdo_data_1[2] = {0x01, NodeId};
-    Can_Pdo_Write(0, pdo_data_1, sizeof(pdo_data_1) / sizeof(pdo_data_1)[0]);
-
-    //  for (int ii ; ii < 20 ;ii++){
-    //     //  printf("PDO\n");
-    //     Can_Sdo_read_and_check();
-    //  }
-    
-    // uint8_t pdo_data_2[2] = {0x80, NodeId};
-    // usleep(20000);
-    // 2022-07-18 
-    uint8_t pdo_data_2[2] = {0x80,NodeId};
+    Can_Pdo_Write(0, pdo_data_1, sizeof(pdo_data_1) / sizeof(pdo_data_1[0]));
 
     for (int i = 0; i < 10; i++)
     {
-        //Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2)[0]);
-        Can_Sdo_Write(NodeId, 0x4004, 1, 1);
-        usleep(10000);
+        // PDO Logging thread starts
+        start_Pdo_logging();
+        /*wait for some time before we write some SDO messages*/
+        usleep(20000);
+        // 2022-07-18
+        // Kill the PDO thread and then send the SDO message (Can_Sdo_Write_while_Pdo_logging)
+        // Can_Sdo_read_and_check_while_Pdo_logging
+        // If a SDO response of motor is sent,
+        // break the loop
+
+        Can_Sdo_write_while_Pdo_logging(NodeId, 0x4004, 1, 1);
+        Can_Sdo_read_and_check(NodeId, 0x4004, 1);
+
+        // PDO Logging thread starts
     }
-    Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2)[0]);
+
+    // for (int i = 0; i < 10; i++)
+    // {
+    //     //Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2)[0]);
+    //     Can_Sdo_Write(NodeId, 0x4004, 1, 1);
+    //     usleep(10000);
+    // }
+
+    uint8_t pdo_data_2[2] = {0x80, NodeId};
+    Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2[0]));
+
     Can_Sdo_Write(NodeId, 0x4004, 1, 0); // Disable power stage
     /**
      * @brief uncomment this later
-     * 
+     *
      */
     // Can_Sdo_read_and_check(NodeId, 0x4004, 1);
 

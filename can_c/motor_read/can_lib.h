@@ -38,7 +38,13 @@ void *time_watcher(void *args);
  * 
  */
 void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr);
-//mc.Can.PdoWr(0, [0x80, NodeId]) # motor in pre-operational mode to stop PDOs
 
+void *Pdo_logging_thread(void *args);
+
+void start_Pdo_logging();
+
+void stop_Pdo_logging();
+
+void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t data);
 
 #endif // CAN_SEND_H

@@ -5,7 +5,9 @@
 int s;
 struct can_frame frame;
 clock_t clk_t;
-pthread_t th_timer;
+pthread_t th_timer, pdo_logging;
+
+int sdo_write_ok = 1;
 
 int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 {
@@ -199,23 +201,24 @@ void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
             if (frame.can_id != can_id + 0x580 ||
                 frame.data[0] != 0x60 ||
                 frame.data[1] != (addr & (0xff)) ||
-                frame.data[2] != (addr >> 8)||
+                frame.data[2] != (addr >> 8) ||
                 frame.data[3] != sub_addr)
             {
-
 
                 // printf("frame.data[1]: %x, addr & (0xff): %x", frame.data[1], addr & (0xff));
                 printf("--------MOTOR RESPONSE ERROR--------\r\n"
                        "The response from the motor should be (in hex form): \r\n"
-                       "CAN ID: %x, CAN byte 0: %x for an bug-free motor response\r\n",(can_id + 0x580),0x60 );
+                       "CAN ID: %x, CAN byte 0: %x for an bug-free motor response\r\n",
+                       (can_id + 0x580), 0x60);
 
-                printf("Address should be: %x\r\n",addr);
-                printf("Sub address should be: %x\r\n",sub_addr);
+                printf("Address should be: %x\r\n", addr);
+                printf("Sub address should be: %x\r\n", sub_addr);
                 printf("\r\n But actual the motor response is: \r\n"
-                       "CAN ID: %x, CAN byte 0: %x\r\n",frame.can_id,frame.data[0] );
+                       "CAN ID: %x, CAN byte 0: %x\r\n",
+                       frame.can_id, frame.data[0]);
 
-                printf("Actual address response is : %x%x\r\n",frame.data[2],frame.data[1]);
-                printf("Actual sub address response is: %x\r\n",frame.data[3]);
+                printf("Actual address response is : %x%x\r\n", frame.data[2], frame.data[1]);
+                printf("Actual sub address response is: %x\r\n", frame.data[3]);
                 exit(1);
             };
 
@@ -233,5 +236,61 @@ void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
         //      */
         //     printf("TIME OUT ERROR\r\n");
         // }
+    }
+}
+
+void *Pdo_logging_thread(void *args)
+{
+
+    // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+    // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    int logging_number = 0;
+    while (1)
+    {
+
+        int nbytes = read(s, &frame, sizeof(frame));
+        if (nbytes > 0)
+        {
+            if (!(frame.can_id & CAN_EFF_FLAG))
+                // if(frame.can_id&0x80000000==0)
+                printf("Received standard frame!\n");
+            else
+                printf("Received extended frame!\n");
+
+            /* Print the CAN message information */
+            printf("can_id = 0x%X\r\ncan_dlc = %d \r\n", frame.can_id & 0x1FFFFFFF, frame.can_dlc);
+            for (int i = 0; i < 8; i++)
+                printf("data[%d] = %d\r\n", i, frame.data[i]);
+
+            // If the one batch of the motor data is recorded,
+            // the flag sdo_write_ok is set to 1
+            sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+        }
+    }
+}
+
+void start_Pdo_logging()
+{
+    pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL);
+}
+
+void stop_Pdo_logging()
+{
+    pthread_cancel(pdo_logging);
+}
+
+void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t data)
+{
+
+    while (1)
+    {
+        /* After a whole batch of Pdo data is received */
+        if (sdo_write_ok)
+        {
+            // Stop the Pdo logging and write the Sdo message
+            stop_Pdo_logging();
+            Can_Sdo_Write(can_id, addr, sub_addr, data);
+            return NULL;
+        }
     }
 }
