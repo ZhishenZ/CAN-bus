@@ -18,7 +18,7 @@
 
 extern int s;
 extern struct can_frame frame;
-extern clock_t clk_t;
+// extern clock_t clk_t;
 
 int can_send_init( struct ifreq ifr, struct sockaddr_can addr); 
 

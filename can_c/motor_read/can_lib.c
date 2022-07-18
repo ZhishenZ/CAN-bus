@@ -5,7 +5,7 @@
 int s;
 struct can_frame frame;
 clock_t clk_t;
-// pthread_t th_timer;
+pthread_t th_timer;
 
 
 int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
@@ -177,7 +177,7 @@ void *time_watcher(void *args)
 void Can_read_and_check()
 {
 
-    pthread_t th_timer;
+    // pthread_t th_timer;
 
     pthread_create(&th_timer, NULL, time_watcher, NULL);
 
