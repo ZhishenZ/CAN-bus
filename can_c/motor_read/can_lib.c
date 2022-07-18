@@ -1,12 +1,11 @@
 #include "can_lib.h"
 
 /*Global Variables*/
-#define TIMEOUT_THRESHOLD 0.5 // Threshold for timeou in seconds. 
+#define TIMEOUT_THRESHOLD 0.5 // Threshold for timeou in seconds.
 int s;
 struct can_frame frame;
 clock_t clk_t;
 pthread_t th_timer;
-
 
 int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 {
@@ -55,7 +54,7 @@ int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 
 void close_can()
 {
-    
+
     /*Close the socket and can0 */
     // pthread_cancel(th_timer);
     close(s);
@@ -141,10 +140,10 @@ void Can_Pdo_Write(uint16_t can_id, uint8_t *data_array, uint8_t array_len)
 }
 
 void *time_watcher(void *args)
-{   
-    
-    //pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+{
+
+    // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     clk_t = clock();
     while (1)
     {
@@ -154,27 +153,18 @@ void *time_watcher(void *args)
             /**
              * @todo later this can be changed by a more specific error message.
              */
-            
+
             printf("--------TIME OUT ERROR--------\r\n");
-            printf("No response from the CAN bus for %f seconds\r\n",((double)(clock() - clk_t) / (CLOCKS_PER_SEC)));
+            printf("No response from the CAN bus for %f seconds\r\n", ((double)(clock() - clk_t) / (CLOCKS_PER_SEC)));
             // printf("current time: %f and (double)(clock() - clk_t) : %f \r\n", (double)clock() / (CLOCKS_PER_SEC),(double)(clock() - clk_t)/ (CLOCKS_PER_SEC));
             // printf("---TIME OUT ERROR---\r\n");
-            
 
             exit(1);
         }
-        
     }
 }
 
-
-
-
-
-
-
-
-void Can_read_and_check()
+void Can_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 {
 
     // pthread_t th_timer;
@@ -184,12 +174,10 @@ void Can_read_and_check()
     while (1)
     {
 
-
         int nbytes = read(s, &frame, sizeof(frame));
 
-        // after receiving the CAN message, kill the watch_timer_thread 
+        // after receiving the CAN message, kill the watch_timer_thread
         pthread_cancel(th_timer);
-        
 
         if (nbytes > 0)
         {
@@ -198,12 +186,36 @@ void Can_read_and_check()
                 printf("Received standard frame!\n");
             else
                 printf("Received extended frame!\n");
+
+            /* Print the CAN message information */
             printf("can_id = 0x%X\r\ncan_dlc = %d \r\n", frame.can_id & 0x1FFFFFFF, frame.can_dlc);
             for (int i = 0; i < 8; i++)
                 printf("data[%d] = %d\r\n", i, frame.data[i]);
 
-            
-            
+            /* Check if the response from the motor is correct.
+                if the can_id is not correct
+             */
+
+            if (frame.can_id != can_id + 0x580 ||
+                frame.data[0] != 0x60 ||
+                frame.data[1] != addr & (0xff) ||
+                frame.data[2] != addr >> 8||
+                frame.data[3] != sub_addr)
+            {
+                printf("--------MOTOR RESPONSE ERROR--------\r\n"
+                       "The response from the motor should be (in hex form): \r\n"
+                       "CAN ID: %x, CAN byte 0: %x for an bug-free motor response\r\n",(can_id + 0x580),0x60 );
+
+                printf("Address should be: %x\r\n",addr);
+                printf("Sub address should be: %x\r\n",sub_addr);
+                printf("\r\n But actual the motor response is: \r\n"
+                       "CAN ID: %x, CAN byte 0: %x\r\n",frame.can_id,frame.data[0] );
+
+                printf("Actual address response is : %x%x\r\n",frame.data[2],frame.data[1]);
+                printf("Actual sub address response is: %x\r\n",frame.data[3]);
+                exit(1);
+            };
+
             break;
             // mask below sentense to receive all the time other wise can only receive one time!
             // break;
@@ -212,12 +224,11 @@ void Can_read_and_check()
         // printf("Time measured in seconds: %f \n\r", (double)(clock() - clk_t)/(CLOCKS_PER_SEC));
         // // Check TIME OUT error
         // if ((double)(clock() - clk_t)/(CLOCKS_PER_SEC) > TIMEOUT_THRESHOLD)
-        // {   
+        // {
         //     /**
-        //      * @todo later this can be changed by a more specific error message. 
+        //      * @todo later this can be changed by a more specific error message.
         //      */
         //     printf("TIME OUT ERROR\r\n");
         // }
     }
 }
-

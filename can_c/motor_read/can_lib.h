@@ -37,7 +37,7 @@ void *time_watcher(void *args);
  *        time out error when the motor does not response
  * 
  */
-void Can_read_and_check();
+void Can_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr);
 //mc.Can.PdoWr(0, [0x80, NodeId]) # motor in pre-operational mode to stop PDOs
 
 
