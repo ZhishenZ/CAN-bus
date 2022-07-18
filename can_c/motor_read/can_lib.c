@@ -1,7 +1,7 @@
 #include "can_lib.h"
 
 /*Global Variables*/
-#define TIMEOUT_THRESHOLD 0.5 // Threshold for timeou in seconds.
+#define TIMEOUT_THRESHOLD 0.02 // Threshold for timeou in seconds.
 int s;
 struct can_frame frame;
 clock_t clk_t;
@@ -164,7 +164,7 @@ void *time_watcher(void *args)
     }
 }
 
-void Can_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
+void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 {
 
     // pthread_t th_timer;
@@ -198,10 +198,13 @@ void Can_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 
             if (frame.can_id != can_id + 0x580 ||
                 frame.data[0] != 0x60 ||
-                frame.data[1] != addr & (0xff) ||
-                frame.data[2] != addr >> 8||
+                frame.data[1] != (addr & (0xff)) ||
+                frame.data[2] != (addr >> 8)||
                 frame.data[3] != sub_addr)
             {
+
+
+                // printf("frame.data[1]: %x, addr & (0xff): %x", frame.data[1], addr & (0xff));
                 printf("--------MOTOR RESPONSE ERROR--------\r\n"
                        "The response from the motor should be (in hex form): \r\n"
                        "CAN ID: %x, CAN byte 0: %x for an bug-free motor response\r\n",(can_id + 0x580),0x60 );
