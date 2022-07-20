@@ -2,13 +2,18 @@
 
 /*Global Variables*/
 #define TIMEOUT_THRESHOLD 0.02 // Threshold for timeou in seconds.
+#define LOGGING_FILE_NAME "Pdo_response.csv"
 int s;
 int logging_number = 0;
+int sdo_write_ok = 1;
 struct can_frame frame;
 clock_t clk_t;
+struct timeval tv;
 pthread_t th_timer, pdo_logging;
+FILE *log_file_p;
+char buf[32];
+char long_buf[128];
 
-int sdo_write_ok = 1;
 
 int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 {
@@ -57,9 +62,8 @@ int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 
 void close_can()
 {
-
     /*Close the socket and can0 */
-    // pthread_cancel(th_timer);
+    fclose(log_file_p);
     close(s);
     system("sudo ifconfig can0 down");
 }
@@ -72,20 +76,16 @@ void Can_Sdo_Write(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t da
     frame.can_dlc = 8;
     // SDO write
     frame.data[0] = 0x23;
-
     // address
     frame.data[1] = addr & (0xff);
     frame.data[2] = addr >> 8;
-
     // sub address
     frame.data[3] = sub_addr;
-
     // data
     frame.data[4] = data & 0xff;
     frame.data[5] = (data >> 8) & (0xff);
     frame.data[6] = (data >> 16) & (0xff);
     frame.data[7] = data >> 24;
-
     ret = write(s, &frame, sizeof(frame));
     if (ret != sizeof(frame))
     {
@@ -103,14 +103,11 @@ void Can_Sdo_Read(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
     frame.can_dlc = 8;
     // SDO Read
     frame.data[0] = 0x40;
-
     // address
     frame.data[1] = addr & (0xff);
     frame.data[2] = addr >> 8;
-
     // sub address
     frame.data[3] = sub_addr;
-
     // data
     frame.data[4] = 0;
     frame.data[5] = 0;
@@ -144,7 +141,6 @@ void Can_Pdo_Write(uint16_t can_id, uint8_t *data_array, uint8_t array_len)
 
 void *time_watcher(void *args)
 {
-
     // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     clk_t = clock();
@@ -158,19 +154,94 @@ void *time_watcher(void *args)
              */
 
             printf("--------TIME OUT ERROR--------\r\n");
-            printf("No response from the CAN bus for %f seconds\r\n", ((double)(clock() - clk_t) / (CLOCKS_PER_SEC)));
-            // printf("current time: %f and (double)(clock() - clk_t) : %f \r\n", (double)clock() / (CLOCKS_PER_SEC),(double)(clock() - clk_t)/ (CLOCKS_PER_SEC));
-            // printf("---TIME OUT ERROR---\r\n");
-
+            printf("No response from the motor via bus for %f seconds\r\n", ((double)(clock() - clk_t) / (CLOCKS_PER_SEC)));
             exit(1);
+        }
+    }
+}
+
+void Can_Sdo_read_and_check_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
+{
+
+    // pthread_t th_timer;
+    int i, nbytes;
+
+    pthread_create(&th_timer, NULL, time_watcher, NULL);
+
+    while (1)
+    {
+        nbytes = read(s, &frame, sizeof(frame));
+        // after receiving the CAN message, kill the watch_timer_thread
+        pthread_cancel(th_timer);
+
+        if (nbytes > 0)
+        {
+            if (frame.can_id == 0x1FF ||
+                frame.can_id == 0x2FF ||
+                frame.can_id == 0x3FF ||
+                frame.can_id == 0x4FF)
+            {
+                gettimeofday(&tv, NULL);
+                strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
+
+                sprintf(long_buf, "%s.%06d,%X,%d,",
+                        buf, tv.tv_usec, frame.can_id, frame.can_dlc);
+                // memset(buf,'\0',32);
+                for (i = 0; i < frame.can_dlc; i++)
+                {
+                    sprintf(buf, " %02X", frame.data[i]);
+                    strcat(long_buf, buf);
+                }
+                strcat(long_buf, "\n");
+
+                /**
+                 * @todo delete this later
+                 *       this is only for testing
+                 */
+                if (logging_number == 3)
+                    strcat(long_buf, "\n");
+
+                // store data to the CSV file
+                fprintf(log_file_p, long_buf);
+
+                sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+                logging_number = (logging_number == 4) ? 0 : logging_number;
+            }
+            else if (frame.can_id != can_id + 0x580 ||
+                     frame.data[0] != 0x60 ||
+                     frame.data[1] != (addr & (0xff)) ||
+                     frame.data[2] != (addr >> 8) ||
+                     frame.data[3] != sub_addr)
+            {
+
+                printf("--------MOTOR RESPONSE ERROR--------\r\n"
+                       "The response from the motor should be (in hex form): \r\n"
+                       "CAN ID: %X, CAN byte 0: %X for an bug-free motor response\r\n",
+                       (can_id + 0x580), 0x60);
+
+                printf("Address should be: %X\r\n", addr);
+                printf("Sub address should be: %X\r\n", sub_addr);
+                printf("\r\n But actual the motor response is: \r\n"
+                       "CAN ID: %X, CAN byte 0: %X\r\n",
+                       frame.can_id, frame.data[0]);
+
+                printf("Actual address response is : %X%X\r\n", frame.data[2], frame.data[1]);
+                printf("Actual sub address response is: %X\r\n", frame.data[3]);
+                exit(1);
+            }
+            else
+            {
+                break;
+            }
+
+            // mask below sentense to receive all the time other wise can only receive one time!
+            // break;
         }
     }
 }
 
 void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 {
-
-    // pthread_t th_timer;
 
     pthread_create(&th_timer, NULL, time_watcher, NULL);
 
@@ -184,74 +255,32 @@ void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 
         if (nbytes > 0)
         {
-            if (!(frame.can_id & CAN_EFF_FLAG))
-                // if(frame.can_id&0x80000000==0)
-                printf("Received standard frame!\n");
-            else
-                printf("Received extended frame!\n");
 
-            /* Print the CAN message information */
-            printf("can_id = 0x%X\r\ncan_dlc = %d \r\n", frame.can_id & 0x1FFFFFFF, frame.can_dlc);
-            for (int i = 0; i < 8; i++)
-                printf("data[%d] = %d\r\n", i, frame.data[i]);
-
-            /* Check if the response from the motor is correct.
-                if the can_id is not correct
-             */
-            /*if this is a PDO message*/
-            if (frame.can_id == 0x1FF ||
-                frame.can_id == 0x2FF ||
-                frame.can_id == 0x3FF ||
-                frame.can_id == 0x4FF)
-            {
-                /**
-                 * @todo log the PDO message
-                 * 
-                 */
-                sdo_write_ok = (++logging_number % 4) ? 0 : 1;
-                logging_number = (logging_number==4) ? 0: logging_number;
-            }
-            else if (frame.can_id != can_id + 0x580 ||
-                     frame.data[0] != 0x60 ||
-                     frame.data[1] != (addr & (0xff)) ||
-                     frame.data[2] != (addr >> 8) ||
-                     frame.data[3] != sub_addr)
+            if (frame.can_id != can_id + 0x580 ||
+                frame.data[0] != 0x60 ||
+                frame.data[1] != (addr & (0xff)) ||
+                frame.data[2] != (addr >> 8) ||
+                frame.data[3] != sub_addr)
             {
 
-                // printf("frame.data[1]: %x, addr & (0xff): %x", frame.data[1], addr & (0xff));
                 printf("--------MOTOR RESPONSE ERROR--------\r\n"
                        "The response from the motor should be (in hex form): \r\n"
-                       "CAN ID: %x, CAN byte 0: %x for an bug-free motor response\r\n",
+                       "CAN ID: %X, CAN byte 0: %X for an bug-free motor response\r\n",
                        (can_id + 0x580), 0x60);
 
-                printf("Address should be: %x\r\n", addr);
-                printf("Sub address should be: %x\r\n", sub_addr);
+                printf("Address should be: %X\r\n", addr);
+                printf("Sub address should be: %X\r\n", sub_addr);
                 printf("\r\n But actual the motor response is: \r\n"
-                       "CAN ID: %x, CAN byte 0: %x\r\n",
+                       "CAN ID: %X, CAN byte 0: %X\r\n",
                        frame.can_id, frame.data[0]);
 
-                printf("Actual address response is : %x%x\r\n", frame.data[2], frame.data[1]);
-                printf("Actual sub address response is: %x\r\n", frame.data[3]);
+                printf("Actual address response is : %X%X\r\n", frame.data[2], frame.data[1]);
+                printf("Actual sub address response is: %X\r\n", frame.data[3]);
                 exit(1);
             }
-            else
-            {
-                break;
-            }
 
-            // mask below sentense to receive all the time other wise can only receive one time!
-            // break;
+            break;
         }
-
-        // printf("Time measured in seconds: %f \n\r", (double)(clock() - clk_t)/(CLOCKS_PER_SEC));
-        // // Check TIME OUT error
-        // if ((double)(clock() - clk_t)/(CLOCKS_PER_SEC) > TIMEOUT_THRESHOLD)
-        // {
-        //     /**
-        //      * @todo later this can be changed by a more specific error message.
-        //      */
-        //     printf("TIME OUT ERROR\r\n");
-        // }
     }
 }
 
@@ -259,35 +288,53 @@ void *Pdo_logging_thread(void *args)
 {
 
     // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+    int i, nbytes;
     // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     while (1)
     {
-
-        int nbytes = read(s, &frame, sizeof(frame));
-        if (nbytes > 0)
+        nbytes = read(s, &frame, sizeof(frame));
+        if (nbytes > 0 && (frame.can_id == 0x1FF ||
+                           frame.can_id == 0x2FF ||
+                           frame.can_id == 0x3FF ||
+                           frame.can_id == 0x4FF))
         {
-            if (!(frame.can_id & CAN_EFF_FLAG))
-                // if(frame.can_id&0x80000000==0)
-                printf("Received standard frame!\n");
-            else
-                printf("Received extended frame!\n");
 
-            /* Print the CAN message information */
-            printf("can_id = 0x%X\r\ncan_dlc = %d \r\n", frame.can_id & 0x1FFFFFFF, frame.can_dlc);
-            for (int i = 0; i < 8; i++)
-                printf("data[%d] = %d\r\n", i, frame.data[i]);
+            gettimeofday(&tv, NULL);
+            strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
 
-            // If the one batch of the motor data is recorded,
-            // the flag sdo_write_ok is set to 1
+            sprintf(long_buf, "%s.%06d,%X,%d,",
+                    buf, tv.tv_usec, frame.can_id, frame.can_dlc);
+            // memset(buf,'\0',32);
+            for (i = 0; i < frame.can_dlc; i++)
+            {
+                sprintf(buf, " %02X", frame.data[i]);
+                strcat(long_buf, buf);
+            }
+            // strcat(buf,"\n");
+            // fprinf(log_file_p,buf);
+            strcat(long_buf, "\n");
+
+            /**
+             * @todo delete this later
+             *
+             */
+            if (logging_number == 3)
+                strcat(long_buf, "\n");
+
+            fprintf(log_file_p, long_buf);
+
+            // set the sdo write ok if four messages are received.
             sdo_write_ok = (++logging_number % 4) ? 0 : 1;
-            logging_number = (logging_number==4) ? 0: logging_number;
+            logging_number = (logging_number == 4) ? 0 : logging_number;
         }
     }
 }
 
 void start_Pdo_logging()
 {
-    pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL);
+    if(pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL)!=0){
+        printf("--------PDO LOGGING FAILED TO START--------\r\n");
+    };
 }
 
 void stop_Pdo_logging()
@@ -309,4 +356,18 @@ void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub
             break;
         }
     }
+}
+
+int create_log_file()
+{
+
+    log_file_p = fopen(LOGGING_FILE_NAME, "w");
+    int write_status = fprintf(log_file_p, "Local Time,ID (hex),DLC,Data(hex)\n");
+    if (write_status < 0)
+    {
+        printf("Error when creating log file. \n");
+        return 1;
+    }
+
+    return 0;
 }

@@ -9,6 +9,8 @@ int main()
     // initialization
     if (can_send_init(ifr, addr))
         return 1;
+    if(create_log_file())
+        return 1;
 
     // Parameter NodeId
     uint8_t NodeId = 127;
@@ -260,12 +262,22 @@ int main()
     uint8_t pdo_data_1[2] = {0x01, NodeId};
     Can_Pdo_Write(0, pdo_data_1, sizeof(pdo_data_1) / sizeof(pdo_data_1[0]));
 
-    for (int i = 0; i < 3; i++)
+
+
+
+
+    for (int i = 0; i < 5; i++)
     {
         // PDO Logging thread starts
         start_Pdo_logging();
         /*wait for some time before we write some SDO messages*/
-        usleep(10000);
+
+        /**
+         * @brief The uspleep time can not be exactly 20 ms, since the motor period is 20 ms
+         *        otherwise this wil collides with the motor own frequency (CAN message collision)
+         * 
+         */
+        usleep(15000);
         // 2022-07-18
         // Kill the PDO thread and then send the SDO message (Can_Sdo_Write_while_Pdo_logging)
         // Can_Sdo_read_and_check_while_Pdo_logging
@@ -273,17 +285,13 @@ int main()
         // break the loop
 
         Can_Sdo_write_while_Pdo_logging(NodeId, 0x4004, 1, 1);
-        Can_Sdo_read_and_check(NodeId, 0x4004, 1);
+        Can_Sdo_read_and_check_while_Pdo_logging(NodeId, 0x4004, 1);
 
         // PDO Logging thread starts
     }
 
-    // for (int i = 0; i < 10; i++)
-    // {
-    //     //Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2)[0]);
-    //     Can_Sdo_Write(NodeId, 0x4004, 1, 1);
-    //     usleep(10000);
-    // }
+
+
 
     uint8_t pdo_data_2[2] = {0x80, NodeId};
     Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2[0]));

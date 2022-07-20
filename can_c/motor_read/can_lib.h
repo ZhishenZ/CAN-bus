@@ -11,6 +11,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <time.h>
@@ -46,5 +47,9 @@ void start_Pdo_logging();
 void stop_Pdo_logging();
 
 void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t data);
+
+void Can_Sdo_read_and_check_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr);
+
+int create_log_file();
 
 #endif // CAN_SEND_H
