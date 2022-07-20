@@ -3,6 +3,7 @@
 /*Global Variables*/
 #define TIMEOUT_THRESHOLD 0.02 // Threshold for timeou in seconds.
 int s;
+int logging_number = 0;
 struct can_frame frame;
 clock_t clk_t;
 pthread_t th_timer, pdo_logging;
@@ -197,12 +198,24 @@ void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
             /* Check if the response from the motor is correct.
                 if the can_id is not correct
              */
-
-            if (frame.can_id != can_id + 0x580 ||
-                frame.data[0] != 0x60 ||
-                frame.data[1] != (addr & (0xff)) ||
-                frame.data[2] != (addr >> 8) ||
-                frame.data[3] != sub_addr)
+            /*if this is a PDO message*/
+            if (frame.can_id == 0x1FF ||
+                frame.can_id == 0x2FF ||
+                frame.can_id == 0x3FF ||
+                frame.can_id == 0x4FF)
+            {
+                /**
+                 * @todo log the PDO message
+                 * 
+                 */
+                sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+                logging_number = (logging_number==4) ? 0: logging_number;
+            }
+            else if (frame.can_id != can_id + 0x580 ||
+                     frame.data[0] != 0x60 ||
+                     frame.data[1] != (addr & (0xff)) ||
+                     frame.data[2] != (addr >> 8) ||
+                     frame.data[3] != sub_addr)
             {
 
                 // printf("frame.data[1]: %x, addr & (0xff): %x", frame.data[1], addr & (0xff));
@@ -220,9 +233,12 @@ void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
                 printf("Actual address response is : %x%x\r\n", frame.data[2], frame.data[1]);
                 printf("Actual sub address response is: %x\r\n", frame.data[3]);
                 exit(1);
-            };
+            }
+            else
+            {
+                break;
+            }
 
-            break;
             // mask below sentense to receive all the time other wise can only receive one time!
             // break;
         }
@@ -244,7 +260,6 @@ void *Pdo_logging_thread(void *args)
 
     // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    int logging_number = 0;
     while (1)
     {
 
@@ -265,6 +280,7 @@ void *Pdo_logging_thread(void *args)
             // If the one batch of the motor data is recorded,
             // the flag sdo_write_ok is set to 1
             sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+            logging_number = (logging_number==4) ? 0: logging_number;
         }
     }
 }
@@ -290,7 +306,7 @@ void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub
             // Stop the Pdo logging and write the Sdo message
             stop_Pdo_logging();
             Can_Sdo_Write(can_id, addr, sub_addr, data);
-            return NULL;
+            break;
         }
     }
 }

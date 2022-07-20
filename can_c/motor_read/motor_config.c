@@ -260,12 +260,12 @@ int main()
     uint8_t pdo_data_1[2] = {0x01, NodeId};
     Can_Pdo_Write(0, pdo_data_1, sizeof(pdo_data_1) / sizeof(pdo_data_1[0]));
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 3; i++)
     {
         // PDO Logging thread starts
         start_Pdo_logging();
         /*wait for some time before we write some SDO messages*/
-        usleep(20000);
+        usleep(10000);
         // 2022-07-18
         // Kill the PDO thread and then send the SDO message (Can_Sdo_Write_while_Pdo_logging)
         // Can_Sdo_read_and_check_while_Pdo_logging
