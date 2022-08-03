@@ -6,7 +6,7 @@ FLAGS = -lpthread -ldaqhats
 CFLAGS = -Wall -I/usr/local/include -g
 
 $(PROG): $(PROG).c
-		$(CC) $(CAN_BUS_LIB).h $(CAN_BUS_LIB).c $(PROG).c $(FLAGS) $(CFLAGS) -o $(PROG)
+		$(CC) $(CAN_BUS_LIB).c $(PROG).c $(FLAGS) $(CFLAGS) -o $(PROG)
 
 .PHONY: clean
 
