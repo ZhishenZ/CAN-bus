@@ -1,5 +1,5 @@
 PROG = continuous_scan
-CAN_BUS_LIB = test
+CAN_BUS_LIB = mcc118_continuous_scan
 # DAQ_LIB = daqhat_utils
 CC = gcc
 FLAGS = -lpthread -ldaqhats

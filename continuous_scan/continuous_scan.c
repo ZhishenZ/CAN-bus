@@ -1,5 +1,5 @@
 #include "daqhats_utils.h"
-#include "test.h"
+#include "mcc118_continuous_scan.h"
 #include <time.h>
 #include <errno.h>
 #include <sys/time.h>
