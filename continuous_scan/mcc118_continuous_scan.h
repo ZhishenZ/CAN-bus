@@ -94,7 +94,7 @@ void print_data(uint32_t samples_read_per_channel, uint8_t num_channels, double 
 
 int check_overrun(uint16_t read_status);
 
-int create_log_file(FILE **log_file_ptr, uint8_t channel_mask, char channel_name[][32], uint8_t num_channels);
+int create_mcc118_log_file(FILE **log_file_ptr, uint8_t channel_mask, char channel_name[][32], uint8_t num_channels);
 
 
 void print_buffer_info(uint8_t address);

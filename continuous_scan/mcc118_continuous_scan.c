@@ -514,7 +514,7 @@ int check_overrun(uint16_t read_status)
     return 1;
 }
 
-int create_log_file(FILE **log_file_ptr, uint8_t channel_mask, char channel_name[][32], uint8_t num_channels)
+int create_mcc118_log_file(FILE **log_file_ptr, uint8_t channel_mask, char channel_name[][32], uint8_t num_channels)
 {
 
     // set the pathLogFiles
@@ -633,7 +633,7 @@ int mcc118_continuous_scan(void)
     print_header_info(num_channels, channel_string, channel_array);
     #endif
     // create a logging file
-    if (!create_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+    if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
     {
         stop_and_cleanup(address);
         return -1;
@@ -668,7 +668,7 @@ int mcc118_continuous_scan(void)
 
             fclose(log_file_ptr);
 
-            if (!create_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+            if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
             {
 
                 stop_and_cleanup(address);

@@ -3,6 +3,7 @@
         "can_send.h": "c",
         "exception": "c",
         "new": "c",
-        "limits": "cpp"
+        "limits": "cpp",
+        "mcc118_continuous_scan.h": "c"
     }
 }

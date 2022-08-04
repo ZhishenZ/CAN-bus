@@ -1,12 +1,13 @@
-PROG = continuous_scan
-CAN_BUS_LIB = mcc118_continuous_scan
+PROG = main#continuous_scan
+CAN_BUS_LIB = can_lib
+MCC_118_LIB = mcc118_continuous_scan
 # DAQ_LIB = daqhat_utils
 CC = gcc
 FLAGS = -lpthread -ldaqhats
 CFLAGS = -Wall -I/usr/local/include -g
 
 $(PROG): $(PROG).c
-		$(CC) $(CAN_BUS_LIB).c $(PROG).c $(FLAGS) $(CFLAGS) -o $(PROG)
+		$(CC) $(CAN_BUS_LIB).c $(MCC_118_LIB).c $(PROG).c $(FLAGS) $(CFLAGS) -o $(PROG)
 
 .PHONY: clean
 
