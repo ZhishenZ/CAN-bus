@@ -197,7 +197,7 @@ int main(void)
 
     while (is_running)
     {
-        usleep(200000);//sleep for 200000 microseconds/200 ms /0.2 s
+        usleep(20000);//sleep for 200000 microseconds/200 ms /0.2 s
 
 
         

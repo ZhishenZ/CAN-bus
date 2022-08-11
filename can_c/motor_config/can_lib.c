@@ -1,7 +1,7 @@
 #include "can_lib.h"
 
 /*Global Variables*/
-#define TIMEOUT_THRESHOLD 0.02 // Threshold for timeou in seconds.
+#define TIMEOUT_THRESHOLD 0.2 // Threshold for timeou in seconds. before was 0.02
 #define LOGGING_FILE_NAME "Pdo_response.csv"
 int s;
 int logging_number = 0;
@@ -87,6 +87,7 @@ void Can_Sdo_Write(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t da
     frame.data[6] = (data >> 16) & (0xff);
     frame.data[7] = data >> 24;
     ret = write(s, &frame, sizeof(frame));
+    //usleep(10000);
     if (ret != sizeof(frame))
     {
         printf("ret: %d sizeof(frame): %d\n", ret, sizeof(frame));
@@ -331,7 +332,7 @@ void *Pdo_logging_thread(void *args)
 }
 
 void start_Pdo_logging()
-{
+{   
     if(pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL)!=0){
         printf("--------PDO LOGGING FAILED TO START--------\r\n");
     };
