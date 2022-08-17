@@ -339,7 +339,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A00, 2);
     Can_Sdo_Write(NodeId, 0x1A00, 0, 2); // write numbers of objects into the table = 2
     Can_Sdo_read_and_check(NodeId, 0x1A00, 0);
-    Can_Sdo_Write(NodeId, 0x1800, 2, 255); // asynchronous (see above)
+    Can_Sdo_Write(NodeId, 0x1800, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1800, 2);
     Can_Sdo_Write(NodeId, 0x1800, 3, 200); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1800, 3);
@@ -355,7 +355,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A01, 2);
     Can_Sdo_Write(NodeId, 0x1A01, 0, 2); // write numbers of objects into the table = 2
     Can_Sdo_read_and_check(NodeId, 0x1A01, 0);
-    Can_Sdo_Write(NodeId, 0x1801, 2, 255); // asynchronous (see above)
+    Can_Sdo_Write(NodeId, 0x1801, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1801, 2);
     Can_Sdo_Write(NodeId, 0x1801, 3, 200); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1801, 3);
@@ -371,7 +371,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A02, 2);
     Can_Sdo_Write(NodeId, 0x1A02, 0, 2); // write numbers of objects into the table = 2
     Can_Sdo_read_and_check(NodeId, 0x1A02, 0);
-    Can_Sdo_Write(NodeId, 0x1802, 2, 255); // asynchronous (see above)
+    Can_Sdo_Write(NodeId, 0x1802, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1802, 2);
     Can_Sdo_Write(NodeId, 0x1802, 3, 200); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1802, 3);
@@ -387,7 +387,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A03, 2);
     Can_Sdo_Write(NodeId, 0x1A03, 0, 2); // write numbers of objects into the table = 2
     Can_Sdo_read_and_check(NodeId, 0x1A03, 0);
-    Can_Sdo_Write(NodeId, 0x1803, 2, 255); // asynchronous (see above)
+    Can_Sdo_Write(NodeId, 0x1803, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1803, 2);
     Can_Sdo_Write(NodeId, 0x1803, 3, 200); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1803, 3);
@@ -428,6 +428,10 @@ int main()
     Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 1000); // go to desired  position in increments
     printf("go to release\n");
     sleep(3);
+
+    Can_Sdo_Write_NULL(0x80);
+    Can_Sdo_Write(NodeId, 0x1005, 0x00, 0x80);
+
     Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 0); // go to desired  position in increments
     printf("go to full close\n");
     sleep(3);

@@ -96,6 +96,29 @@ void Can_Sdo_Write(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t da
     }
 }
 
+
+void Can_Sdo_Write_NULL(uint16_t can_id)
+{
+    /*assembly  message data! */
+    struct can_frame frame_;
+    frame_.can_id = can_id;
+    frame_.can_dlc = 0;
+    int ret = write(s, &frame_, sizeof(frame_));
+    //usleep(10000);
+    if (ret != sizeof(frame_))
+    {
+        printf("ret: %d sizeof(frame): %d\n", ret, sizeof(frame_));
+        printf("Send  frame incompletely!\r\n");
+        system("sudo ifconfig can0 down");
+    }
+}
+
+
+
+
+
+
+
 void Can_Sdo_Read(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 {
     int ret;

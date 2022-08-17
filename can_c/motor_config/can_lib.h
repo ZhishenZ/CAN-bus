@@ -23,6 +23,8 @@ extern struct can_frame frame;
 
 int can_send_init( struct ifreq ifr, struct sockaddr_can addr); 
 
+void Can_Sdo_Write_NULL(uint16_t can_id);
+
 void close_can();
 
 void Can_Sdo_Write( uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t data);
