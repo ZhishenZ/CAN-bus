@@ -1,4 +1,4 @@
-PROG = motor_config
+PROG = motor_control
 LIB = can_lib
 CC = gcc
 

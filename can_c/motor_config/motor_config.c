@@ -337,8 +337,10 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A00, 1);
     Can_Sdo_Write(NodeId, 0x1A00, 2, 0x32620120); // set second object (Filtered Current current in mA):
     Can_Sdo_read_and_check(NodeId, 0x1A00, 2);
+
     Can_Sdo_Write(NodeId, 0x1A00, 0, 2); // write numbers of objects into the table = 2
     Can_Sdo_read_and_check(NodeId, 0x1A00, 0);
+
     Can_Sdo_Write(NodeId, 0x1800, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1800, 2);
     Can_Sdo_Write(NodeId, 0x1800, 3, 200); // inhibit time in 100µs
@@ -425,18 +427,27 @@ int main()
     Can_Pdo_Write(0, pdo_data_1, sizeof(pdo_data_1) / sizeof(pdo_data_1[0]));
  
     //Can_Sdo_re-ad_and_check_while_Pdo_logging(NodeId, 0x3790, 0);
-    Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 1000); // go to desired  position in increments
+    Can_Sdo_Write(NodeId, 0x3790, 0, 1000);
+    //Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 1000); // go to desired  position in increments
     printf("go to release\n");
+    
+
+    for(int i = 0 ; i<500;i++){
+        Can_Sdo_Write_NULL(0x80);
+        usleep(10 * 1000);
+    }
     sleep(3);
 
-    Can_Sdo_Write_NULL(0x80);
-    Can_Sdo_Write(NodeId, 0x1005, 0x00, 0x80);
+    
+    //Can_Sdo_Write(NodeId, 0x1005, 0x00, 0x80);
 
-    Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 0); // go to desired  position in increments
+    Can_Sdo_Write(NodeId, 0x3790, 0, 0);
+    //Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 0); // go to desired  position in increments
     printf("go to full close\n");
     sleep(3);
 
     /// uint8_t pdo_data_2[2] = {0x80, NodeId};
+    stop_Pdo_logging();
     Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2[0]));
     Can_Sdo_Write(NodeId, 0x3004, 0, 0); // Disable power stage
     /**
@@ -448,7 +459,7 @@ int main()
     /**
      * @brief clean up
      */
-    printf("Program run time: %f  \r\n", (double)clock() / (CLOCKS_PER_SEC));
+    //printf("Program run time: %f  \r\n", (double)clock() / (CLOCKS_PER_SEC));
 
     printf("Demo finished!\n");
 

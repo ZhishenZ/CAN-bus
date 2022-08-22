@@ -422,14 +422,51 @@ int main()
     Can_Sdo_Write(NodeId, 0x3300, 0x00, 400); // VEL_DesiredValue [rpm]
     Can_Sdo_read_and_check(NodeId, 0x3300, 0x00);
 
-    start_Pdo_logging();
+
+
+
+
+
+
+
+
     uint8_t pdo_data_1[2] = {0x01, NodeId};
     Can_Pdo_Write(0, pdo_data_1, sizeof(pdo_data_1) / sizeof(pdo_data_1[0]));
- 
-    //Can_Sdo_re-ad_and_check_while_Pdo_logging(NodeId, 0x3790, 0);
-    Can_Sdo_Write(NodeId, 0x3790, 0, 1000);
-    //Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 1000); // go to desired  position in increments
-    printf("go to release\n");
+
+
+
+
+
+    //---------- the control loop starts -----------//
+
+    // loop every 20 ms seconds
+    while(1){
+        // send a sychronous message in the can to get PDO response 
+        Can_Sdo_Write_NULL(0x80);
+
+        /**
+         * @todo receive the PDO answer 
+         * @brief convert the 8 bytes into data  
+         */
+
+        /**
+         * @todo control algorithm 
+         * @brief send SDO data to control and check the response of the motor
+         * for example: Can_Sdo_Write(NodeId, 0x3790, 0, 1000);// go to release 
+         *  Can_Sdo_read_and_check(NodeId, 0x3000, 0);
+         */
+
+        /**
+         * @todo record the PDO data in a csv file.  
+         * 
+         */
+
+        usleep(20*1000);// sleep 20 miliseconds 
+
+    }
+
+    Can_Sdo_Write(NodeId, 0x3790, 0, 1000);// go to release
+
     
 
     for(int i = 0 ; i<500;i++){
@@ -441,13 +478,16 @@ int main()
     
     //Can_Sdo_Write(NodeId, 0x1005, 0x00, 0x80);
 
-    Can_Sdo_Write(NodeId, 0x3790, 0, 0);
-    //Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 0); // go to desired  position in increments
-    printf("go to full close\n");
-    sleep(3);
+    Can_Sdo_Write(NodeId, 0x3790, 0, 0); //go to full close
 
-    /// uint8_t pdo_data_2[2] = {0x80, NodeId};
-    stop_Pdo_logging();
+
+    //---------- the control loop ends -----------//
+
+
+
+
+
+
     Can_Pdo_Write(0, pdo_data_2, sizeof(pdo_data_2) / sizeof(pdo_data_2[0]));
     Can_Sdo_Write(NodeId, 0x3004, 0, 0); // Disable power stage
     /**
