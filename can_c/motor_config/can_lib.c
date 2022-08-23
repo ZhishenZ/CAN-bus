@@ -8,7 +8,7 @@ int logging_number = 0;
 int sdo_write_ok = 1;
 struct can_frame frame;
 clock_t clk_t, clk_start;
-struct timeval tv;
+struct timeval tv, tv_start;
 pthread_t th_timer, pdo_logging;
 FILE *log_file_p;
 char buf[32];
@@ -52,7 +52,7 @@ int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
         perror("bind failed!");
         return 1;
     }
-
+    gettimeofday(&tv_start, NULL);
     /*Disable filtering rules,this program only send message do not receive packets */
     /* since we also need to receive message from the CAN bus, we do not set any filter. */
     // setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
@@ -328,7 +328,8 @@ void *Pdo_logging_thread(void *args)
             strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
 
             sprintf(long_buf, "%s.%06d,%f,%X,%d,",
-                    buf, tv.tv_usec, (double)(clock())/CLOCKS_PER_SEC, 
+                    buf, tv.tv_usec, 
+                    (double)(tv.tv_sec-tv_start.tv_sec)*1000 + (tv.tv_usec-tv_start.tv_usec)*0.001, 
                     frame.can_id, frame.can_dlc);
             // memset(buf,'\0',32);
             for (i = 0; i < frame.can_dlc; i++)
