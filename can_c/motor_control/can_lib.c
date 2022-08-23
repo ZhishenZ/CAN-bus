@@ -14,7 +14,6 @@ FILE *log_file_p;
 char buf[32];
 char long_buf[128];
 
-
 int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 {
 
@@ -87,7 +86,7 @@ void Can_Sdo_Write(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t da
     frame.data[6] = (data >> 16) & (0xff);
     frame.data[7] = data >> 24;
     ret = write(s, &frame, sizeof(frame));
-    //usleep(10000);
+    // usleep(10000);
     if (ret != sizeof(frame))
     {
         printf("ret: %d sizeof(frame): %d\n", ret, sizeof(frame));
@@ -96,7 +95,6 @@ void Can_Sdo_Write(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t da
     }
 }
 
-
 void Can_Sdo_Write_NULL(uint16_t can_id)
 {
     /*assembly  message data! */
@@ -104,7 +102,7 @@ void Can_Sdo_Write_NULL(uint16_t can_id)
     frame_.can_id = can_id;
     frame_.can_dlc = 0;
     int ret = write(s, &frame_, sizeof(frame_));
-    //usleep(10000);
+    // usleep(10000);
     if (ret != sizeof(frame_))
     {
         printf("ret: %d sizeof(frame): %d\n", ret, sizeof(frame_));
@@ -112,12 +110,6 @@ void Can_Sdo_Write_NULL(uint16_t can_id)
         system("sudo ifconfig can0 down");
     }
 }
-
-
-
-
-
-
 
 void Can_Sdo_Read(uint16_t can_id, uint16_t addr, uint8_t sub_addr)
 {
@@ -355,8 +347,9 @@ void *Pdo_logging_thread(void *args)
 }
 
 void start_Pdo_logging()
-{   
-    if(pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL)!=0){
+{
+    if (pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL) != 0)
+    {
         printf("--------PDO LOGGING FAILED TO START--------\r\n");
     };
 }
@@ -394,4 +387,56 @@ int create_log_file()
     }
 
     return 0;
+}
+
+void get_Pdo_response(long long int *motor_current,
+                      long long int *motor_position,
+                      long long int *load_cell_voltage)
+{
+
+    // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+    int i, nbytes;
+
+    int check_4_pdos[4] = {0,0,0,0};
+
+
+    // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    while (1)
+    {
+        nbytes = read(s, &frame, sizeof(frame));
+        if (nbytes > 0 && (frame.can_id == 0x1FF ||
+                           frame.can_id == 0x2FF ||
+                           frame.can_id == 0x3FF ||
+                           frame.can_id == 0x4FF))
+        {
+
+            gettimeofday(&tv, NULL);
+            strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
+
+            sprintf(long_buf, "%s.%06d,%X,%d,",
+                    buf, tv.tv_usec, frame.can_id, frame.can_dlc);
+            // memset(buf,'\0',32);
+            for (i = 0; i < frame.can_dlc; i++)
+            {
+                sprintf(buf, " %02X", frame.data[i]);
+                strcat(long_buf, buf);
+            }
+            // strcat(buf,"\n");
+            // fprinf(log_file_p,buf);
+            strcat(long_buf, "\n");
+
+            /**
+             * @todo delete this later
+             *
+             */
+            if (logging_number == 3)
+                strcat(long_buf, "\n");
+
+            fprintf(log_file_p, long_buf);
+
+            // set the sdo write ok if four messages are received.
+            sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+            logging_number = (logging_number == 4) ? 0 : logging_number;
+        }
+    }
 }
