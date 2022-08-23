@@ -343,7 +343,7 @@ int main()
 
     Can_Sdo_Write(NodeId, 0x1800, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1800, 2);
-    Can_Sdo_Write(NodeId, 0x1800, 3, 200); // inhibit time in 100µs
+    Can_Sdo_Write(NodeId, 0x1800, 3, 100); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1800, 3);
 
     ////////// 2nd TX-PDO //////////
@@ -359,7 +359,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A01, 0);
     Can_Sdo_Write(NodeId, 0x1801, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1801, 2);
-    Can_Sdo_Write(NodeId, 0x1801, 3, 200); // inhibit time in 100µs
+    Can_Sdo_Write(NodeId, 0x1801, 3, 100); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1801, 3);
 
     ////////// 3rd TX-PDO //////////
@@ -375,7 +375,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A02, 0);
     Can_Sdo_Write(NodeId, 0x1802, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1802, 2);
-    Can_Sdo_Write(NodeId, 0x1802, 3, 200); // inhibit time in 100µs
+    Can_Sdo_Write(NodeId, 0x1802, 3, 100); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1802, 3);
 
     ////////// 4th TX-PDO //////////
@@ -391,7 +391,7 @@ int main()
     Can_Sdo_read_and_check(NodeId, 0x1A03, 0);
     Can_Sdo_Write(NodeId, 0x1803, 2, 1); // asynchronous (see above)
     Can_Sdo_read_and_check(NodeId, 0x1803, 2);
-    Can_Sdo_Write(NodeId, 0x1803, 3, 200); // inhibit time in 100µs
+    Can_Sdo_Write(NodeId, 0x1803, 3, 100); // inhibit time in 100µs
     Can_Sdo_read_and_check(NodeId, 0x1803, 3);
 
     // sleep for 5 miliseconds to wait the bus to be empty
@@ -432,19 +432,26 @@ int main()
     printf("go to release\n");
     
 
-    for(int i = 0 ; i<500;i++){
+    for(int i = 0 ; i<200;i++){
         Can_Sdo_Write_NULL(0x80);
-        usleep(10 * 1000);
+        usleep(20 * 1000);
     }
-    sleep(3);
+    sleep(2);
 
     
-    //Can_Sdo_Write(NodeId, 0x1005, 0x00, 0x80);
+    Can_Sdo_Write(NodeId, 0x1005, 0x00, 0x80);
 
     Can_Sdo_Write(NodeId, 0x3790, 0, 0);
     //Can_Sdo_write_while_Pdo_logging(NodeId, 0x3790, 0, 0); // go to desired  position in increments
+    for(int i = 0 ; i<200;i++){
+        Can_Sdo_Write_NULL(0x80);
+        usleep(20 * 1000);
+    }
     printf("go to full close\n");
-    sleep(3);
+    sleep(2);
+
+    
+
 
     /// uint8_t pdo_data_2[2] = {0x80, NodeId};
     stop_Pdo_logging();

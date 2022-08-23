@@ -7,7 +7,7 @@ int s;
 int logging_number = 0;
 int sdo_write_ok = 1;
 struct can_frame frame;
-clock_t clk_t;
+clock_t clk_t, clk_start;
 struct timeval tv;
 pthread_t th_timer, pdo_logging;
 FILE *log_file_p;
@@ -317,6 +317,7 @@ void *Pdo_logging_thread(void *args)
     while (1)
     {
         nbytes = read(s, &frame, sizeof(frame));
+        
         if (nbytes > 0 && (frame.can_id == 0x1FF ||
                            frame.can_id == 0x2FF ||
                            frame.can_id == 0x3FF ||
@@ -326,8 +327,9 @@ void *Pdo_logging_thread(void *args)
             gettimeofday(&tv, NULL);
             strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
 
-            sprintf(long_buf, "%s.%06d,%X,%d,",
-                    buf, tv.tv_usec, frame.can_id, frame.can_dlc);
+            sprintf(long_buf, "%s.%06d,%f,%X,%d,",
+                    buf, tv.tv_usec, (double)(clock())/CLOCKS_PER_SEC, 
+                    frame.can_id, frame.can_dlc);
             // memset(buf,'\0',32);
             for (i = 0; i < frame.can_dlc; i++)
             {
@@ -342,14 +344,14 @@ void *Pdo_logging_thread(void *args)
              * @todo delete this later
              *
              */
-            if (logging_number == 3)
-                strcat(long_buf, "\n");
+            // if (logging_number == 3)
+            //     strcat(long_buf, "\n");
 
             fprintf(log_file_p, long_buf);
 
-            // set the sdo write ok if four messages are received.
-            sdo_write_ok = (++logging_number % 4) ? 0 : 1;
-            logging_number = (logging_number == 4) ? 0 : logging_number;
+            // // set the sdo write ok if four messages are received.
+            // sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+            // logging_number = (logging_number == 4) ? 0 : logging_number;
         }
     }
 }
@@ -386,7 +388,7 @@ int create_log_file()
 {
 
     log_file_p = fopen(LOGGING_FILE_NAME, "w");
-    int write_status = fprintf(log_file_p, "Local Time,ID (hex),DLC,Data(hex)\n");
+    int write_status = fprintf(log_file_p, "Local Time, Program run time, ID (hex),DLC,Data(hex)\n");
     if (write_status < 0)
     {
         printf("Error when creating log file. \n");
