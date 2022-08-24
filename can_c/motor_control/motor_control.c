@@ -444,10 +444,22 @@ int main()
         // send a sychronous message in the can to get PDO response 
         Can_Sdo_Write_NULL(0x80);
 
+
+
+
+
+        long long int motor_current, motor_position, load_cell_voltage;
         /**
          * @todo receive the PDO answer 
          * @brief convert the 8 bytes into data  
          */
+
+
+
+
+
+
+
 
         /**
          * @todo control algorithm 
