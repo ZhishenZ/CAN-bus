@@ -1,5 +1,10 @@
-# Continuous Scan Example
+# Continuous Scan with GUI
 
+## install gtk packages for the GUI
+Install required packages:
+  ```sh
+  sudo apt install libgtk-3-dev at-spi2-core autoconf libtool
+  ```
 ## About
 This example demonstrates how to perform a continuous acquisition on one or more 
 channels.

@@ -23,6 +23,8 @@
 #define CHAN7 0x01 << 7
 #define MAX_CHAN_ARRAY_LENGTH 32
 
+extern int data_recording_active;
+
 // Timeout definitions
 #define WAIT_INDEFINITELY -1
 #define RETURN_IMMEDIATELY 0

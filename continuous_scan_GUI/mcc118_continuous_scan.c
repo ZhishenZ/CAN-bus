@@ -1,5 +1,7 @@
 #include "mcc118_continuous_scan.h"
 
+int data_recording_active = 0;
+
 void print_buffer_info(uint8_t address)
 {
 
@@ -40,7 +42,7 @@ int mcc118_init_print(uint8_t num_channels, double scan_rate, uint8_t *address,
 
     double actual_scan_rate = 0.0;
     char options_str[512];
-    char c;
+    // char c;
 
     mcc118_a_in_scan_actual_rate(num_channels, scan_rate, &actual_scan_rate);
 
@@ -72,8 +74,8 @@ int mcc118_init_print(uint8_t num_channels, double scan_rate, uint8_t *address,
     printf("    Actual scan rate: %-10.2f\n", actual_scan_rate);
     printf("    Options: %s\n", options_str);
 
-    printf("\nPress ENTER to continue ...\n");
-    scanf("%c", &c);
+    //printf("\nPress ENTER to continue ...\n");
+    //scanf("%c", &c);
 
     return 1;
 }
@@ -610,92 +612,134 @@ int mcc118_continuous_scan(void)
     // add the file pointer
     FILE *log_file_ptr = NULL;
 
-    if (!mcc118_init_print(num_channels, SCAN_RATE, &address,
-                           OPTS_CONTINUOUS, channel_mask, channel_string))
+     if (!mcc118_init_print(num_channels, SCAN_RATE, &address,
+                            OPTS_CONTINUOUS, channel_mask, channel_string))
     {
-        return -1;
-    }
-    // Configure and start the scan.
-    // Since the continuous option is being used, the samples_per_channel
-    // parameter is ignored if the value is less than the default internal
-    // buffer size (10000 * num_channels in this case). If a larger internal
-    // buffer size is desired, set the value of this parameter accordingly.
-    result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
-                                    SCAN_RATE, OPTS_CONTINUOUS);
-    STOP_ON_ERROR(result, address);
-
-    // time stamp when the scan starts
-    gettimeofday(&last_time, NULL);
-
-    print_buffer_info(address);
-
-    #ifdef PRINT_DATA_IN_TERMINAL
-    print_header_info(num_channels, channel_string, channel_array);
-    #endif
-    // create a logging file
-    if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
-    {
-        stop_and_cleanup(address);
-        return -1;
-    }
+         return -1;
+     }
+    //// Configure and start the scan.
+    //// Since the continuous option is being used, the samples_per_channel
+    //// parameter is ignored if the value is less than the default internal
+    //// buffer size (10000 * num_channels in this case). If a larger internal
+    //// buffer size is desired, set the value of this parameter accordingly.
+    // result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
+    //                                 SCAN_RATE, OPTS_CONTINUOUS);
+    // STOP_ON_ERROR(result, address);
+//
+//// time stamp when the scan starts
+// gettimeofday(&last_time, NULL);
+//
+// print_buffer_info(address);
+//
+#ifdef PRINT_DATA_IN_TERMINAL
+    // print_header_info(num_channels, channel_string, channel_array);
+#endif
+    //// create a logging file
+    // if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+    //{
+    //     stop_and_cleanup(address);
+    //     return -1;
+    // }
 
     // Continuously update the display value until enter key is pressed
-    do
+
+    while (1)
     {
 
-        usleep(2000000);
-        // Since the read_request_size is set to -1 (READ_ALL_AVAILABLE), this
-        // function returns immediately with whatever samples are available (up
-        // to user_buffer_size) and the timeout parameter is ignored.
-        result = mcc118_a_in_scan_read(address, &read_status, read_request_size,
-                                       TIME_OUT, read_buf, user_buffer_size, &samples_read_per_channel);
-        STOP_ON_ERROR(result, address);
-
-        if (!check_overrun(read_status))
-            break;
-
-        if (!write_log_file(log_file_ptr, num_channels, read_buf,
-                            &samples_read_per_channel, &elapsed_time, dt))
+        if (data_recording_active) /*is recording*/
         {
-            fprintf(stderr, "\nWrite log file failed.\n");
-            break;
-        };
+            /* if the log file is not open, create a file and start the scann */
+            if (!log_file_ptr)
+            {       
+                printf("debug before\n");
+                result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
+                                                SCAN_RATE, OPTS_CONTINUOUS);
+                STOP_ON_ERROR(result, address);
+                printf("debug after\n");
 
-        gettimeofday(&this_time, NULL);
+                gettimeofday(&last_time, NULL);
 
-        if (this_time.tv_sec - last_time.tv_sec >= LOGGING_TIME)
-        {
-
-            fclose(log_file_ptr);
-
-            if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
-            {
-
-                stop_and_cleanup(address);
-                return -1;
-            }
-
-
-            printf("\n-----------------------------"
-                   "\nMaximal logging time reached.\nOld files were closed.\n");
-            // close the files and creat a new file and add the header to the files
-
-            printf("New files created.\n-----------------------------\n\n");
-
-            // update last_time
-            last_time = this_time;
-        }
+                print_buffer_info(address);
 
 #ifdef PRINT_DATA_IN_TERMINAL
-        print_data(samples_read_per_channel, num_channels, read_buf);
+                print_header_info(num_channels, channel_string, channel_array);
 #endif
-        // order a file
 
-    } while ((result == RESULT_SUCCESS) &&
-             ((read_status & STATUS_RUNNING) == STATUS_RUNNING) &&
-             !enter_press());
+                if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+                {
+                    stop_and_cleanup(address);
+                    return -1;
+                }
+            }
 
-    printf("\n\r");
+            /*write csv file*/
+            do
+            {
 
+                usleep(200000);
+                // Since the read_request_size is set to -1 (READ_ALL_AVAILABLE), this
+                // function returns immediately with whatever samples are available (up
+                // to user_buffer_size) and the timeout parameter is ignored.
+                result = mcc118_a_in_scan_read(address, &read_status, read_request_size,
+                                               TIME_OUT, read_buf, user_buffer_size, &samples_read_per_channel);
+                STOP_ON_ERROR(result, address);
+
+                if (!check_overrun(read_status))
+                    break;
+
+                if (!write_log_file(log_file_ptr, num_channels, read_buf,
+                                    &samples_read_per_channel, &elapsed_time, dt))
+                {
+                    fprintf(stderr, "\nWrite log file failed.\n");
+                    break;
+                };
+
+                gettimeofday(&this_time, NULL);
+
+                if (this_time.tv_sec - last_time.tv_sec >= LOGGING_TIME)
+                {
+
+                    fclose(log_file_ptr);
+
+                    if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+                    {
+
+                        stop_and_cleanup(address);
+                        return -1;
+                    }
+
+                    printf("\n-----------------------------"
+                           "\nMaximal logging time reached.\nOld files were closed.\n");
+                    // close the files and creat a new file and add the header to the files
+
+                    printf("New files created.\n-----------------------------\n\n");
+
+                    // update last_time
+                    last_time = this_time;
+                }
+
+#ifdef PRINT_DATA_IN_TERMINAL
+                print_data(samples_read_per_channel, num_channels, read_buf);
+#endif
+                // order a file
+
+            } while ((result == RESULT_SUCCESS) &&
+                     ((read_status & STATUS_RUNNING) == STATUS_RUNNING) &&
+                     data_recording_active);
+        }
+        else /*is not recording*/
+        {
+            if (log_file_ptr)
+            {
+                fclose(log_file_ptr);
+                log_file_ptr = NULL;
+                mcc118_a_in_scan_stop(address);
+                mcc118_a_in_scan_cleanup(address);
+            }
+            usleep(1000);
+        }
+
+        
+    }
     return 0;
 }
