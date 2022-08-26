@@ -11,7 +11,7 @@ void print_buffer_info(uint8_t address)
 
     printf("Internal data buffer size:  %d\n", internal_buffer_size_samples);
 
-    printf("\nStarting scan ... Press ENTER to stop\n\n");
+    printf("\nStarting scan ... Swith the RECORDING BUTTON to stop\n\n");
 };
 
 void print_header_info(uint8_t num_channels,
@@ -74,8 +74,8 @@ int mcc118_init_print(uint8_t num_channels, double scan_rate, uint8_t *address,
     printf("    Actual scan rate: %-10.2f\n", actual_scan_rate);
     printf("    Options: %s\n", options_str);
 
-    //printf("\nPress ENTER to continue ...\n");
-    //scanf("%c", &c);
+    // printf("\nPress ENTER to continue ...\n");
+    // scanf("%c", &c);
 
     return 1;
 }
@@ -176,125 +176,6 @@ void convert_options_to_string(uint32_t options, char *options_str)
     }
 }
 
-/* This function converts the trigger mode defined by the trigger_mode
-   parameter to a string representation and returns the string
-   respresentation of the trigger mode. */
-void convert_trigger_mode_to_string(uint8_t trigger_mode,
-                                    char *trigger_mode_str)
-{
-    if (trigger_mode_str == NULL)
-        return;
-
-    switch (trigger_mode)
-    {
-    case TRIG_FALLING_EDGE:
-        strcpy(trigger_mode_str, "TRIG_FALLING_EDGE");
-        break;
-    case TRIG_ACTIVE_HIGH:
-        strcpy(trigger_mode_str, "TRIG_ACTIVE_HIGH");
-        break;
-    case TRIG_ACTIVE_LOW:
-        strcpy(trigger_mode_str, "TRIG_ACTIVE_LOW");
-        break;
-    case TRIG_RISING_EDGE:
-    default:
-        strcpy(trigger_mode_str, "TRIG_RISING_EDGE");
-        break;
-    }
-    return;
-}
-
-/* This function converts the analog input mode defined by the mode
-   parameter to a string representation and returns the string
-   respresentation of the input mode. */
-void convert_input_mode_to_string(uint8_t mode, char *mode_str)
-{
-    if (mode_str == NULL)
-        return;
-
-    switch (mode)
-    {
-    case A_IN_MODE_SE:
-        strcpy(mode_str, "SINGLE_ENDED");
-        break;
-    case A_IN_MODE_DIFF:
-    default:
-        strcpy(mode_str, "DIFFERENTIAL");
-        break;
-    }
-    return;
-}
-
-/* This function converts the analog input range defined by the range
-   parameter to a string representation and returns the string
-   respresentation of the input range. */
-void convert_input_range_to_string(uint8_t range, char *range_str)
-{
-    if (range_str == NULL)
-        return;
-
-    switch (range)
-    {
-    case A_IN_RANGE_BIP_10V:
-        strcpy(range_str, "+/- 10 V");
-        break;
-    case A_IN_RANGE_BIP_5V:
-        strcpy(range_str, "+/- 5 V");
-        break;
-    case A_IN_RANGE_BIP_2V:
-        strcpy(range_str, "+/- 2 V");
-        break;
-    case A_IN_RANGE_BIP_1V:
-    default:
-        strcpy(range_str, "+/- 1 V");
-        break;
-    }
-    return;
-}
-
-/* This function converts the thermocouple type defined by the tc_type
-   parameter to a string representation and returns the string
-   respresentation. */
-void convert_tc_type_to_string(uint8_t tc_type,
-                               char *tc_type_str)
-{
-    if (tc_type_str == NULL)
-        return;
-
-    switch (tc_type)
-    {
-    case TC_TYPE_J:
-        strcpy(tc_type_str, "J");
-        break;
-    case TC_TYPE_K:
-        strcpy(tc_type_str, "K");
-        break;
-    case TC_TYPE_T:
-        strcpy(tc_type_str, "T");
-        break;
-    case TC_TYPE_E:
-        strcpy(tc_type_str, "E");
-        break;
-    case TC_TYPE_R:
-        strcpy(tc_type_str, "R");
-        break;
-    case TC_TYPE_S:
-        strcpy(tc_type_str, "S");
-        break;
-    case TC_TYPE_B:
-        strcpy(tc_type_str, "B");
-        break;
-    case TC_TYPE_N:
-        strcpy(tc_type_str, "N");
-        break;
-    case TC_DISABLED:
-    default:
-        strcpy(tc_type_str, "DISABLED");
-        break;
-    }
-    return;
-}
-
 /* This function converts the mask of channels defined by the channel_mask
    parameter and sets the chans_str parameter, which is passed by reference,
    to a comma separated string respresentation of the channel numbers. */
@@ -360,10 +241,6 @@ void print_error(int result)
     }
 }
 
-void resetCursor() { printf("\033[1;1H"); }
-void clearEOL() { printf("\033[2K"); }
-void cursorUp() { printf("\033[A"); }
-
 /****************************************************************************
  * User input functions
  ****************************************************************************/
@@ -376,27 +253,6 @@ void flush_stdin(void)
         c = getchar();
     } while (c != '\n' && c != EOF);
 }
-
-int enter_press()
-{
-    int stdin_value = 0;
-    struct timeval tv;
-    fd_set fds;
-
-    tv.tv_sec = 0;
-    tv.tv_usec = 0;
-    FD_ZERO(&fds);
-    FD_SET(STDIN_FILENO, &fds); // STDIN_FILENO is 0
-    select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
-    stdin_value = FD_ISSET(STDIN_FILENO, &fds);
-    if (stdin_value != 0)
-    {
-        flush_stdin();
-    }
-
-    return stdin_value;
-}
-
 /* This function displays the available DAQ HAT devices and allows the user
    to select a device to use with the associated example.  The address
    parameter, which is passed by reference, is set to the selected address.
@@ -582,7 +438,6 @@ int create_mcc118_log_file(FILE **log_file_ptr, uint8_t channel_mask, char chann
 int mcc118_continuous_scan(void)
 {
     int result = RESULT_SUCCESS;
-    uint8_t address = 0;
 
     char channel_string[512];
 
@@ -597,6 +452,7 @@ int mcc118_continuous_scan(void)
     convert_chan_mask_to_string(channel_mask, channel_string);
 
     uint32_t samples_per_channel = 0;
+    uint8_t address = 0;
     int max_channel_array_length = mcc118_info()->NUM_AI_CHANNELS;
     int channel_array[max_channel_array_length];
     uint8_t num_channels = convert_chan_mask_to_array(channel_mask, channel_array);
@@ -608,41 +464,9 @@ int mcc118_continuous_scan(void)
     struct timeval this_time, last_time;
     double elapsed_time = 0;
     const double dt = 1.0 / SCAN_RATE * 1000; // convert into miliseconds
+    FILE *log_file_ptr = NULL;                // file pointer
 
-    // add the file pointer
-    FILE *log_file_ptr = NULL;
-
-     if (!mcc118_init_print(num_channels, SCAN_RATE, &address,
-                            OPTS_CONTINUOUS, channel_mask, channel_string))
-    {
-         return -1;
-     }
-    //// Configure and start the scan.
-    //// Since the continuous option is being used, the samples_per_channel
-    //// parameter is ignored if the value is less than the default internal
-    //// buffer size (10000 * num_channels in this case). If a larger internal
-    //// buffer size is desired, set the value of this parameter accordingly.
-    // result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
-    //                                 SCAN_RATE, OPTS_CONTINUOUS);
-    // STOP_ON_ERROR(result, address);
-//
-//// time stamp when the scan starts
-// gettimeofday(&last_time, NULL);
-//
-// print_buffer_info(address);
-//
-#ifdef PRINT_DATA_IN_TERMINAL
-    // print_header_info(num_channels, channel_string, channel_array);
-#endif
-    //// create a logging file
-    // if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
-    //{
-    //     stop_and_cleanup(address);
-    //     return -1;
-    // }
-
-    // Continuously update the display value until enter key is pressed
-
+    /* The while loop checks if the switch button data_recording_active is on */
     while (1)
     {
 
@@ -650,12 +474,20 @@ int mcc118_continuous_scan(void)
         {
             /* if the log file is not open, create a file and start the scann */
             if (!log_file_ptr)
-            {       
-                printf("debug before\n");
+            {
+
+                if (!mcc118_init_print(num_channels, SCAN_RATE, &address,
+                                       OPTS_CONTINUOUS, channel_mask, channel_string))
+                {
+                    return -1;
+                }
+
+                printf("debug 0 \n");
                 result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
                                                 SCAN_RATE, OPTS_CONTINUOUS);
                 STOP_ON_ERROR(result, address);
-                printf("debug after\n");
+
+                printf("debug 1 \n");
 
                 gettimeofday(&last_time, NULL);
 
@@ -680,20 +512,34 @@ int mcc118_continuous_scan(void)
                 // Since the read_request_size is set to -1 (READ_ALL_AVAILABLE), this
                 // function returns immediately with whatever samples are available (up
                 // to user_buffer_size) and the timeout parameter is ignored.
+                printf("debug 2 \n");
                 result = mcc118_a_in_scan_read(address, &read_status, read_request_size,
                                                TIME_OUT, read_buf, user_buffer_size, &samples_read_per_channel);
+                printf("address: %d\n",address);
+                printf("read_status: %d\n",read_status);
+                printf("read_request_size: %d\n",read_request_size);
+                printf("user_buffer_size:%d\n",user_buffer_size);
+                printf("samples_read_per_channel:%d\n",samples_read_per_channel);
+                printf("debug 3 \n");
                 STOP_ON_ERROR(result, address);
 
+                printf("debug 4 \n");
                 if (!check_overrun(read_status))
-                    break;
+                {
+                    stop_and_cleanup(address);
+                    return -1;
+                }
 
                 if (!write_log_file(log_file_ptr, num_channels, read_buf,
                                     &samples_read_per_channel, &elapsed_time, dt))
                 {
                     fprintf(stderr, "\nWrite log file failed.\n");
-                    break;
+                    stop_and_cleanup(address);
+                    return -1;
                 };
 
+                printf("debug 5 \n");
+                /* Check the logging time*/
                 gettimeofday(&this_time, NULL);
 
                 if (this_time.tv_sec - last_time.tv_sec >= LOGGING_TIME)
@@ -733,13 +579,13 @@ int mcc118_continuous_scan(void)
             {
                 fclose(log_file_ptr);
                 log_file_ptr = NULL;
+                elapsed_time = 0; // count the time for the new created file from 0 again.
                 mcc118_a_in_scan_stop(address);
                 mcc118_a_in_scan_cleanup(address);
+                mcc118_close(address);
             }
-            usleep(1000);
+            usleep(10000);
         }
-
-        
     }
     return 0;
 }

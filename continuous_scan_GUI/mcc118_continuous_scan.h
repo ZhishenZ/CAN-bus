@@ -56,38 +56,14 @@ int convert_chan_mask_to_array(uint32_t channel_mask, int chans[]);
 
 void convert_chan_mask_to_string(uint32_t channel_mask, char *chans_str);
 
-void convert_tc_type_to_string(uint8_t tc_type,
-                               char *tc_type_str);
-
 void print_error(int result);
-
-void resetCursor();
-void clearEOL();
-void cursorUp();
 
 /****************************************************************************
  * User input functions
  ****************************************************************************/
 void flush_stdin(void);
 
-int enter_press();
-
 void convert_options_to_string(uint32_t options, char *options_str);
-
-/* This function converts the trigger mode defined by the trigger_mode
-   parameter to a string representation and returns the string
-   respresentation of the trigger mode. */
-void convert_trigger_mode_to_string(uint8_t trigger_mode,
-                                    char *trigger_mode_str);
-
-/* This function converts the analog input mode defined by the mode
-   parameter to a string representation and returns the string
-   respresentation of the input mode. */
-void convert_input_mode_to_string(uint8_t mode, char *mode_str);
-/* This function converts the analog input range defined by the range
-   parameter to a string representation and returns the string
-   respresentation of the input range. */
-void convert_input_range_to_string(uint8_t range, char *range_str);
 
 int write_log_file(FILE *log_file_ptr, uint8_t num_channels, double *read_buf,
                    uint32_t *samples_read, double *elapsed_time, const double dt);
@@ -98,11 +74,9 @@ int check_overrun(uint16_t read_status);
 
 int create_mcc118_log_file(FILE **log_file_ptr, uint8_t channel_mask, char channel_name[][32], uint8_t num_channels);
 
-
 void print_buffer_info(uint8_t address);
 
 void print_header_info(uint8_t num_channels,char channel_string[512], int *channel_array);
-
 
 int mcc118_continuous_scan(void);
 

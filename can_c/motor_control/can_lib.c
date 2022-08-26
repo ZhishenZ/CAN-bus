@@ -5,6 +5,7 @@
 #define LOGGING_FILE_NAME "Pdo_response.csv"
 int s;
 int logging_number = 0;
+int pdo_timeout = 0;
 int sdo_write_ok = 1;
 struct can_frame frame;
 clock_t clk_t;
@@ -389,16 +390,116 @@ int create_log_file()
     return 0;
 }
 
+void *pdo_time_watcher(void *args)
+{
+    // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    clk_t = clock();
+    while (1)
+    {
+
+        if ((double)(clock() - clk_t) / (CLOCKS_PER_SEC) > TIMEOUT_THRESHOLD)
+        {
+            // we do not have to stop the program if there is a timeout
+            pdo_timeout = 1;
+        }
+    }
+}
+
 void get_Pdo_response(long long int *motor_current,
                       long long int *motor_position,
                       long long int *load_cell_voltage)
 {
+    int check_4_pdos[4] = {0, 0, 0, 0};
+    int nbytes;
+
+    pthread_create(&th_timer, NULL, pdo_time_watcher, NULL);
+    while (1)
+    {
+
+        /*check if the four PDOs are all updated*/
+        if ((check_4_pdos[0] && check_4_pdos[1] &&
+             check_4_pdos[2] && check_4_pdos[3]) ||
+            pdo_timeout)
+        {
+            // after receiving the CAN message, kill the thread
+            pthread_cancel(th_timer);
+            pdo_timeout = 0;
+            break;
+        }
+
+        nbytes = read(s, &frame, sizeof(frame));
+
+        if (nbytes > 0)
+        {
+
+            switch (frame.can_id)
+            {
+            case 0x1FF:
+                check_4_pdos[0] = 1;
+                *motor_position = frame.data[0] + (frame.data[1] << 4) + (frame.data[2] << 8) +(frame.data[3] << 12);
+                break;
+            case 0x2FF:
+                check_4_pdos[1] = 1;
+                break;
+            case 0x3FF:
+                check_4_pdos[2] = 1;
+                break;
+            case 0x4FF:
+                check_4_pdos[3] = 1;
+                *load_cell_voltage = frame.data[0] + (frame.data[1] << 4);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    // after receiving the CAN message, kill the watch_timer_thread
+    pthread_cancel(th_timer);
+
+    while (1)
+    {
+
+        int nbytes = read(s, &frame, sizeof(frame));
+
+        // after receiving the CAN message, kill the watch_timer_thread
+        pthread_cancel(th_timer);
+
+        if (nbytes > 0)
+        {
+
+            if (frame.can_id != can_id + 0x580 ||
+                frame.data[0] != 0x60 ||
+                frame.data[1] != (addr & (0xff)) ||
+                frame.data[2] != (addr >> 8) ||
+                frame.data[3] != sub_addr)
+            {
+
+                printf("--------MOTOR RESPONSE ERROR--------\r\n"
+                       "The response from the motor should be (in hex form): \r\n"
+                       "CAN ID: %X, CAN byte 0: %X for an bug-free motor response\r\n",
+                       (can_id + 0x580), 0x60);
+
+                printf("Address should be: %X\r\n", addr);
+                printf("Sub address should be: %X\r\n", sub_addr);
+                printf("\r\n But actual the motor response is: \r\n"
+                       "CAN ID: %X, CAN byte 0: %X\r\n",
+                       frame.can_id, frame.data[0]);
+
+                printf("Actual address response is : %X%X\r\n", frame.data[2], frame.data[1]);
+                printf("Actual sub address response is: %X\r\n", frame.data[3]);
+                exit(1);
+            }
+
+            break;
+        }
+    }
 
     // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     int i, nbytes;
 
-    int check_4_pdos[4] = {0,0,0,0};
-
+    int check_4_pdos[4] = {0, 0, 0, 0};
 
     // pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     while (1)

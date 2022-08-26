@@ -1,5 +1,5 @@
-#ifndef CAN_LIB_H
-#define CAN_LIB_H
+#ifndef CAN_SEND_H
+#define CAN_SEND_H
 
 /*Global Variables*/
 
@@ -22,6 +22,8 @@ extern struct can_frame frame;
 // extern clock_t clk_t;
 
 int can_send_init( struct ifreq ifr, struct sockaddr_can addr); 
+
+void Can_Sdo_Write_NULL(uint16_t can_id);
 
 void close_can();
 
@@ -50,6 +52,12 @@ void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub
 
 void Can_Sdo_read_and_check_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr);
 
-int create_pdo_log_file();
+int create_log_file();
 
-#endif // CAN_LIB_H
+void *pdo_time_watcher(void *args);
+
+void get_Pdo_response(uint32_t *motor_current,
+                      uint32_t *motor_position,
+                      uint32_t *load_cell_voltage);
+
+#endif // CAN_SEND_H

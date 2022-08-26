@@ -1,19 +1,19 @@
 #include "can_lib.h"
 
 /*Global Variables*/
-#define TIMEOUT_THRESHOLD 0.02 // Threshold for timeou in seconds.
+#define TIMEOUT_THRESHOLD 0.2 // Threshold for timeou in seconds. before was 0.02
 #define LOGGING_FILE_NAME "Pdo_response.csv"
 int s;
 int logging_number = 0;
 int sdo_write_ok = 1;
+int pdo_timeout = 0;
 struct can_frame frame;
 clock_t clk_t;
-struct timeval tv;
+struct timeval tv, tv_start;
 pthread_t th_timer, pdo_logging;
 FILE *log_file_p;
 char buf[32];
 char long_buf[128];
-
 
 int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
 {
@@ -52,7 +52,7 @@ int can_send_init(struct ifreq ifr, struct sockaddr_can addr)
         perror("bind failed!");
         return 1;
     }
-
+    gettimeofday(&tv_start, NULL);
     /*Disable filtering rules,this program only send message do not receive packets */
     /* since we also need to receive message from the CAN bus, we do not set any filter. */
     // setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
@@ -87,9 +87,26 @@ void Can_Sdo_Write(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t da
     frame.data[6] = (data >> 16) & (0xff);
     frame.data[7] = data >> 24;
     ret = write(s, &frame, sizeof(frame));
+    // usleep(10000);
     if (ret != sizeof(frame))
     {
         printf("ret: %d sizeof(frame): %d\n", ret, sizeof(frame));
+        printf("Send  frame incompletely!\r\n");
+        system("sudo ifconfig can0 down");
+    }
+}
+
+void Can_Sdo_Write_NULL(uint16_t can_id)
+{
+    /*assembly  message data! */
+    struct can_frame frame_;
+    frame_.can_id = can_id;
+    frame_.can_dlc = 0;
+    int ret = write(s, &frame_, sizeof(frame_));
+    // usleep(10000);
+    if (ret != sizeof(frame_))
+    {
+        printf("ret: %d sizeof(frame): %d\n", ret, sizeof(frame_));
         printf("Send  frame incompletely!\r\n");
         system("sudo ifconfig can0 down");
     }
@@ -183,11 +200,8 @@ void Can_Sdo_read_and_check_while_Pdo_logging(uint16_t can_id, uint16_t addr, ui
             {
                 gettimeofday(&tv, NULL);
                 strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
-                /**
-                 * @todo changed the %06d to %06ld  
-                 * 
-                 */
-                sprintf(long_buf, "%s.%06ld,%X,%d,",
+
+                sprintf(long_buf, "%s.%06d,%X,%d,",
                         buf, tv.tv_usec, frame.can_id, frame.can_dlc);
                 // memset(buf,'\0',32);
                 for (i = 0; i < frame.can_dlc; i++)
@@ -296,6 +310,7 @@ void *Pdo_logging_thread(void *args)
     while (1)
     {
         nbytes = read(s, &frame, sizeof(frame));
+
         if (nbytes > 0 && (frame.can_id == 0x1FF ||
                            frame.can_id == 0x2FF ||
                            frame.can_id == 0x3FF ||
@@ -305,8 +320,10 @@ void *Pdo_logging_thread(void *args)
             gettimeofday(&tv, NULL);
             strftime(buf, 32, "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
 
-            sprintf(long_buf, "%s.%06ld,%X,%d,",
-                    buf, tv.tv_usec, frame.can_id, frame.can_dlc);
+            sprintf(long_buf, "%s.%06d,%f,%X,%d,",
+                    buf, tv.tv_usec,
+                    (double)(tv.tv_sec - tv_start.tv_sec) * 1000 + (tv.tv_usec - tv_start.tv_usec) * 0.001,
+                    frame.can_id, frame.can_dlc);
             // memset(buf,'\0',32);
             for (i = 0; i < frame.can_dlc; i++)
             {
@@ -321,21 +338,22 @@ void *Pdo_logging_thread(void *args)
              * @todo delete this later
              *
              */
-            if (logging_number == 3)
-                strcat(long_buf, "\n");
+            // if (logging_number == 3)
+            //     strcat(long_buf, "\n");
 
             fprintf(log_file_p, long_buf);
 
-            // set the sdo write ok if four messages are received.
-            sdo_write_ok = (++logging_number % 4) ? 0 : 1;
-            logging_number = (logging_number == 4) ? 0 : logging_number;
+            // // set the sdo write ok if four messages are received.
+            // sdo_write_ok = (++logging_number % 4) ? 0 : 1;
+            // logging_number = (logging_number == 4) ? 0 : logging_number;
         }
     }
 }
 
 void start_Pdo_logging()
 {
-    if(pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL)!=0){
+    if (pthread_create(&pdo_logging, NULL, Pdo_logging_thread, NULL) != 0)
+    {
         printf("--------PDO LOGGING FAILED TO START--------\r\n");
     };
 }
@@ -361,11 +379,11 @@ void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub
     }
 }
 
-int create_pdo_log_file()
+int create_log_file()
 {
 
     log_file_p = fopen(LOGGING_FILE_NAME, "w");
-    int write_status = fprintf(log_file_p, "Local Time,ID (hex),DLC,Data(hex)\n");
+    int write_status = fprintf(log_file_p, "Local Time, Program run time, ID (hex),DLC,Data(hex)\n");
     if (write_status < 0)
     {
         printf("Error when creating log file. \n");
@@ -373,4 +391,74 @@ int create_pdo_log_file()
     }
 
     return 0;
+}
+
+void *pdo_time_watcher(void *args)
+{
+    // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    clk_t = clock();
+    while (1)
+    {
+
+        if ((double)(clock() - clk_t) / (CLOCKS_PER_SEC) > TIMEOUT_THRESHOLD)
+        {
+            // we do not have to stop the program if there is a timeout
+            pdo_timeout = 1;
+        }
+    }
+}
+
+void get_Pdo_response(uint32_t *motor_current,
+                      uint32_t *motor_position,
+                      uint32_t *load_cell_voltage)
+{
+    int check_4_pdos[4] = {0, 0, 0, 0};
+    int nbytes;
+
+    pthread_create(&th_timer, NULL, pdo_time_watcher, NULL);
+    while (1)
+    {
+
+        /*check if the four PDOs are all updated*/
+        if ((check_4_pdos[0] && check_4_pdos[1] &&
+             check_4_pdos[2] && check_4_pdos[3]) ||
+            pdo_timeout)
+        {
+            // after receiving the CAN message, kill the thread
+            pthread_cancel(th_timer);
+            pdo_timeout = 0;
+            break;
+        }
+
+        nbytes = read(s, &frame, sizeof(frame));
+
+        if (nbytes > 0)
+        {
+
+            /**
+             * @todo receive the PDO answer
+             * @brief convert the 8 bytes into data
+             */
+            switch (frame.can_id)
+            {
+            case 0x1FF:
+                check_4_pdos[0] = 1;
+                *motor_position = frame.data[0] + (frame.data[1] << 4) + (frame.data[2] << 8) + (frame.data[3] << 12);
+                break;
+            case 0x2FF:
+                check_4_pdos[1] = 1;
+                break;
+            case 0x3FF:
+                check_4_pdos[2] = 1;
+                break;
+            case 0x4FF:
+                check_4_pdos[3] = 1;
+                *load_cell_voltage = frame.data[0] + (frame.data[1] << 4);
+                break;
+            default:
+                break;
+            }
+        }
+    }
 }

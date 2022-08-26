@@ -1,11 +1,6 @@
 #include "mcc118_continuous_scan.h"
 #include "can_lib.h"
 
-
-
-
-
-
 #include <stdlib.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -15,13 +10,6 @@
 #include <gtk/gtkx.h>
 #include <math.h>
 #include <ctype.h>
-
-
-
-
-
-
-
 
 GtkBuilder *builder;
 
@@ -38,44 +26,107 @@ GtkWidget *button_activate, *button_stop, *button_release,
 /*switch*/
 GtkWidget *switch_data_recording;
 
-int activated = 0;
+int activate_button_clicked = 0;
 
+/* increments (target_position) range from 0 to 1000
+1000 full released, 0 full close, half released about 460 */
+uint16_t target_position = 0;
 
-static gboolean on_timeout(gpointer user_data)
+uint32_t motor_current, motor_position, load_cell_voltage;
+
+// Parameter NodeId
+uint8_t NodeId = 127;
+
+ static gboolean on_timeout(gpointer user_data)
+ {
+
+     /* update the force value on the GUI*/
+     gchar *label_str = g_strdup_printf(" %f N", (13.636 * load_cell_voltage - 2727));
+     gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
+     g_free(label_str);
+     return G_SOURCE_CONTINUE;
+ }
+
+void *data_recording_thread_function(void *args)
 {
-
-    static unsigned f_times = 0;
-    gchar *label_str = g_strdup_printf(" %u N", f_times);
-    gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
-    f_times++;
-    g_free(label_str);
-    if (f_times < 100)
-        return G_SOURCE_CONTINUE;
-    else
-        return G_SOURCE_REMOVE;
-
-
-    
-}
-
-
-
-void *gtk_main_thread (void *args)
-{   
     mcc118_continuous_scan();
-     // watch for events
-    return NULL;   
+    // watch for events
+    return NULL;
 }
 
+void *motor_control_thread_function(void *args)
+{
+    int motor_activated = 0;
+    uint8_t pdo_start[2] = {0x01, NodeId};
+    uint8_t pdo_stop[2] = {0x80, NodeId};
 
+    while (1)
+    {
+        /*saturation function */
+        if (load_cell_voltage > 0xFFFF)
+        {
+            load_cell_voltage = 0;
+        }
 
+        if (activate_button_clicked) /* if the ACTIVATE switch button of GUI is clicked */
+        {
+            /* is the status of the motor is also active*/
+            /* read the motor response */
+            if (motor_activated)
+            {
+                Can_Sdo_Write_NULL(0x80);
 
+                /**
+                 * @todo record the PDO data in a csv file.
+                 *
+                 */
+                get_Pdo_response(&motor_current, &motor_position,
+                                 &load_cell_voltage);
+                // if the brake is activated, go to the target position
+                Can_Sdo_Write(NodeId, 0x3790, 0, target_position);
+                Can_Sdo_read_and_check(NodeId, 0x3790, 0);
+            }
+            else
+            {
+                /* user want to activate the motor but the motor is physically not activated*/
+                /* activate the motor with a pdo message */
+                Can_Pdo_Write(0, pdo_start, sizeof(pdo_start) / sizeof(pdo_start[0]));
 
+                /* set the flag to true */
+                motor_activated = 1;
+            }
+        }
+        else /* if the STOP switch button of GUI is clicked */
+        {
 
+            if (motor_position == 0)
+            {
+
+                if (motor_activated)
+                {
+                    // poweroff motor
+                    Can_Pdo_Write(0, pdo_stop, sizeof(pdo_stop) / sizeof(pdo_stop[0]));
+                    motor_activated = 0;
+                }
+            }
+            else
+            {
+                // move to position 0
+                Can_Sdo_Write(NodeId, 0x3790, 0, 0);
+                Can_Sdo_read_and_check(NodeId, 0x3790, 0);
+            }
+        }
+
+        usleep(20 * 1000); // 20 ms
+    }
+    return NULL;
+}
+
+int motor_can_init();
 
 int main(int argc, char *argv[])
 {
-    pthread_t gtk_thread;
+    pthread_t data_recording_thread, motor_control_thread;
     gtk_init(&argc, &argv); // init Gtk
 
     // establish contact with xml code used to adjust widget settings
@@ -114,66 +165,502 @@ int main(int argc, char *argv[])
     /* switch */
     switch_data_recording = GTK_WIDGET(gtk_builder_get_object(builder, "switch_data_recording"));
 
-    g_timeout_add(500/*ms*/,on_timeout,label_force_value);
-
     gtk_widget_show(window);
 
-    
-    
-    pthread_create(&gtk_thread, NULL, gtk_main_thread, NULL);
-    
-    //usleep(1);
-    //mcc118_continuous_scan();
-    
+    if (motor_can_init() != EXIT_SUCCESS)
+    {
+        printf("CAN initialization failed. \n");
+        return 1;
+    }
+
+    /* on_timeout is the control loop that is executed every 20 ms */
+    g_timeout_add(1000 /*ms*/, on_timeout, label_force_value);
+
+    /* create a data recording thread */
+    pthread_create(&data_recording_thread, NULL, data_recording_thread_function, NULL);
+    pthread_create(&motor_control_thread, NULL, motor_control_thread_function, NULL);
+
+    // usleep(1);
+    // mcc118_continuous_scan();
+
     // bgtk_main();
     gtk_main();
+    printf("\n\r");
     return EXIT_SUCCESS;
 }
 
 void on_button_activate_clicked(GtkButton *b)
 {
 
-    activated = 1;
-    if (activated)
-        printf("button activate clicked.\n");
+    activate_button_clicked = 1;
+    printf("activate_button_clicked: %d\n", activate_button_clicked);
+    /**
+     * @todo change the status
+     *
+     */
 }
 
 void on_button_stop_clicked(GtkButton *b)
 {
-    activated = 0;
-    if (!activated)
-        printf("button stop clicked.\n");
+    /* deactivate the brake and set the position to 0 */
+    activate_button_clicked = 0;
+    target_position = 0;
+    /**
+     * @todo change the status
+     *
+     */
 }
 
 void on_button_release_clicked(GtkButton *b)
 {
-    printf("button release clicked.\n");
+    target_position = 1000;
+    /**
+     * @todo change the status
+     *
+     */
 }
-
 
 void on_button_step_1_clicked(GtkButton *b)
 {
-    printf("BRAKE step 1.\n"); 
+    target_position = 460;
+    /**
+     * @todo change the status
+     *
+     */
 }
-
 
 void on_button_step_2_clicked(GtkButton *b)
 {
-    printf("BRAKE step 2.\n"); 
+    target_position = 0;
+    /**
+     * @todo change the status
+     *
+     */
 }
 
 void on_switch_data_recording_state_set(GtkSwitch *s)
 {
     gboolean T = gtk_switch_get_active(s);
-    if(T){
-        printf("Data recording is on.\n");
+    if (T)
+    {
+        // printf("Data recording is on.\n");
         data_recording_active = 1;
-        
-        printf("data_recording_active: %d\n",data_recording_active);
-    }else{
-        printf("Data recording is off.\n");
-        data_recording_active = 0;
-        printf("data_recording_active: %d\n",data_recording_active);
+
+        // printf("data_recording_active: %d\n",data_recording_active);
     }
+    else
+    {
+        // printf("Data recording is off.\n");
+        data_recording_active = 0;
+        // printf("data_recording_active: %d\n",data_recording_active);
+    }
+    /**
+     * @todo change the status
+     *
+     */
 }
 
+int motor_can_init()
+{
+
+    struct sockaddr_can addr;
+    struct ifreq ifr;
+
+    // initialization
+    if (can_send_init(ifr, addr))
+        return 1;
+
+    if (create_log_file())
+        return 1;
+
+    uint8_t pdo_stop[2] = {0x80, NodeId};
+    Can_Pdo_Write(0, pdo_stop, sizeof(pdo_stop) / sizeof(pdo_stop[0]));
+
+    Can_Sdo_Write(NodeId, 0x3004, 0x00, 0); // DEV_Enable - Disable
+    Can_Sdo_read_and_check(NodeId, 0x3004, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3000, 0x00, 1); // DEV_Cmd - Clear error
+    Can_Sdo_read_and_check(NodeId, 0x3000, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3000, 0x00, 0x82); // DEV_Cmd - Default parameter
+    Can_Sdo_read_and_check(NodeId, 0x3000, 0x00);
+
+    // usleep(1000000);
+
+    Can_Sdo_Write(NodeId, 0x3900, 0x00, 1); // MOTOR_Type
+    Can_Sdo_read_and_check(NodeId, 0x3900, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3911, 0x00, 0); // MOTOR_Polarity0
+    Can_Sdo_read_and_check(NodeId, 0x3911, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3910, 0x00, 22); // MOTOR_PolN
+    Can_Sdo_read_and_check(NodeId, 0x3910, 0x00);
+    Can_Sdo_Write(NodeId, 0x3962, 0x00, 2000); // MOTOR_ENC_Resolution
+    Can_Sdo_read_and_check(NodeId, 0x3962, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3901, 0x00, 1770); // MOTOR_Nn
+    Can_Sdo_read_and_check(NodeId, 0x3901, 0x00);
+    Can_Sdo_Write(NodeId, 0x3902, 0x00, 18000); // MOTOR_Un
+    Can_Sdo_read_and_check(NodeId, 0x3902, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3350, 0x00, 2378); // VEL_Feedback
+    Can_Sdo_read_and_check(NodeId, 0x3350, 0x00);
+    Can_Sdo_Write(NodeId, 0x3550, 0x00, 2378); // SVEL_Feedback
+    Can_Sdo_read_and_check(NodeId, 0x3550, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3221, 0x00, 30000); // CURR_LimitMaxPos
+    Can_Sdo_read_and_check(NodeId, 0x3221, 0x00);
+    Can_Sdo_Write(NodeId, 0x3223, 0x00, 30000); // CURR_LimitMaxNeg
+    Can_Sdo_read_and_check(NodeId, 0x3223, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3050, 0x00, 0); // DEV_DinEnable
+    Can_Sdo_read_and_check(NodeId, 0x3050, 0x00);
+    Can_Sdo_Write(NodeId, 0x3051, 0x00, 0); // DEV_DinClearError
+    Can_Sdo_read_and_check(NodeId, 0x3051, 0x00);
+    Can_Sdo_Write(NodeId, 0x3052, 0x00, 0); // DEV_DinStartStop
+    Can_Sdo_read_and_check(NodeId, 0x3052, 0x00);
+    Can_Sdo_Write(NodeId, 0x3055, 0x00, 0); // DEV_DinLimitPos
+    Can_Sdo_read_and_check(NodeId, 0x3055, 0x00);
+    Can_Sdo_Write(NodeId, 0x3056, 0x00, 0); // DEV_DinLimitNeg
+    Can_Sdo_read_and_check(NodeId, 0x3056, 0x00);
+    Can_Sdo_Write(NodeId, 0x3057, 0x00, 0); // DEV_DinReference
+    Can_Sdo_read_and_check(NodeId, 0x3057, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3060, 0x00, 0); // DEV_DoutError
+    Can_Sdo_read_and_check(NodeId, 0x3060, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3108, 0x00, 0); // IO_AIN0_Offset
+    Can_Sdo_read_and_check(NodeId, 0x3108, 0x00);
+    Can_Sdo_Write(NodeId, 0x3108, 0x01, 0); // IO_AIN1_Offset
+    Can_Sdo_read_and_check(NodeId, 0x3108, 0x01);
+    Can_Sdo_Write(NodeId, 0x310a, 0x00, 0); // IO_AIN0_DeadBand
+    Can_Sdo_read_and_check(NodeId, 0x310a, 0x00);
+    Can_Sdo_Write(NodeId, 0x310a, 0x01, 0); // IO_AIN1_DeadBand
+    Can_Sdo_read_and_check(NodeId, 0x310a, 0x01);
+
+    Can_Sdo_Write(NodeId, 0x3154, 0x00, 255); // DEV_DoutEnable
+    Can_Sdo_read_and_check(NodeId, 0x3154, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3204, 0x00, 512); // CURR_DesiredValue_Source
+    Can_Sdo_read_and_check(NodeId, 0x3204, 0x00);
+    Can_Sdo_Write(NodeId, 0x3205, 0x00, 1000); // CURR_DesiredValue_Reference
+    Can_Sdo_read_and_check(NodeId, 0x3205, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3210, 0x00, 20); // CURR_Kp
+    Can_Sdo_read_and_check(NodeId, 0x3210, 0x00);
+    Can_Sdo_Write(NodeId, 0x3211, 0x00, 20); // CURR_Ki
+    Can_Sdo_read_and_check(NodeId, 0x3211, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3224, 0x00, 0); // CURR_DynLimitMode
+    Can_Sdo_read_and_check(NodeId, 0x3224, 0x00);
+    Can_Sdo_Write(NodeId, 0x3224, 0x01, 30000); // CURR_DynLimitPeak
+    Can_Sdo_read_and_check(NodeId, 0x3224, 0x01);
+    Can_Sdo_Write(NodeId, 0x3224, 0x02, 30000); // CURR_DynLimitCont
+    Can_Sdo_read_and_check(NodeId, 0x3224, 0x02);
+    Can_Sdo_Write(NodeId, 0x3224, 0x03, 1000); // CURR_DynLimitTime
+    Can_Sdo_read_and_check(NodeId, 0x3224, 0x03);
+
+    Can_Sdo_Write(NodeId, 0x3240, 0x00, 10000); // CURR_Acc_dI
+    Can_Sdo_read_and_check(NodeId, 0x3240, 0x00);
+    Can_Sdo_Write(NodeId, 0x3241, 0x00, 1); // CURR_Acc_dT
+    Can_Sdo_read_and_check(NodeId, 0x3241, 0x00);
+    Can_Sdo_Write(NodeId, 0x3242, 0x00, 10000); // CURR_Dec_dI
+    Can_Sdo_read_and_check(NodeId, 0x3242, 0x00);
+    Can_Sdo_Write(NodeId, 0x3243, 0x00, 1); // CURR_Dec_dT
+    Can_Sdo_read_and_check(NodeId, 0x3243, 0x00);
+    Can_Sdo_Write(NodeId, 0x3244, 0x00, 10000); // CURR_Dec_QuickStop_dI
+    Can_Sdo_read_and_check(NodeId, 0x3244, 0x00);
+    Can_Sdo_Write(NodeId, 0x3245, 0x00, 1); // CURR_Dec_QuickStop_dT
+    Can_Sdo_read_and_check(NodeId, 0x3245, 0x00);
+    Can_Sdo_Write(NodeId, 0x324c, 0x00, 0); // CURR_RampType
+    Can_Sdo_read_and_check(NodeId, 0x324c, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3302, 0x00, 1); // VEL_ScaleNum
+    Can_Sdo_read_and_check(NodeId, 0x3302, 0x00);
+    Can_Sdo_Write(NodeId, 0x3303, 0x00, 1); // VEL_ScaleDen
+    Can_Sdo_read_and_check(NodeId, 0x3303, 0x00);
+    Can_Sdo_Write(NodeId, 0x3304, 0x00, 768); // VEL_DesiredValue_Source
+    Can_Sdo_read_and_check(NodeId, 0x3304, 0x00);
+    Can_Sdo_Write(NodeId, 0x3305, 0x00, 1000); // VEL_DesiredValue_Reference
+    Can_Sdo_read_and_check(NodeId, 0x3305, 0x00);
+    Can_Sdo_Write(NodeId, 0x330a, 0x00, 1); // VEL_DimensionNum
+    Can_Sdo_read_and_check(NodeId, 0x330a, 0x00);
+    Can_Sdo_Write(NodeId, 0x330b, 0x00, 1); // VEL_DimensionDen
+    Can_Sdo_read_and_check(NodeId, 0x330b, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3310, 0x00, 100); // VEL_Kp
+    Can_Sdo_read_and_check(NodeId, 0x3310, 0x00);
+    Can_Sdo_Write(NodeId, 0x3311, 0x00, 30); // VEL_Ki
+    Can_Sdo_read_and_check(NodeId, 0x3311, 0x00);
+    Can_Sdo_Write(NodeId, 0x3312, 0x00, 0); // VEL_Kd
+    Can_Sdo_read_and_check(NodeId, 0x3312, 0x00);
+    Can_Sdo_Write(NodeId, 0x3313, 0x00, 10); // VEL_ILimit
+    Can_Sdo_read_and_check(NodeId, 0x3313, 0x00);
+    Can_Sdo_Write(NodeId, 0x3314, 0x00, 300); // VEL_Kvff
+    Can_Sdo_read_and_check(NodeId, 0x3314, 0x00);
+    Can_Sdo_Write(NodeId, 0x3315, 0x00, 100); // VEL_Kaff
+    Can_Sdo_read_and_check(NodeId, 0x3315, 0x00);
+    Can_Sdo_Write(NodeId, 0x3317, 0x00, 0); // VEL_KIxR
+    Can_Sdo_read_and_check(NodeId, 0x3317, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3321, 0x00, 2147483647); // VEL_LimitMaxPos
+    Can_Sdo_read_and_check(NodeId, 0x3321, 0x00);
+    Can_Sdo_Write(NodeId, 0x3323, 0x00, 2147483647); // VEL_LimitMaxNeg
+    Can_Sdo_read_and_check(NodeId, 0x3323, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3340, 0x00, 3000); // VEL_Acc_dV   1000
+    Can_Sdo_read_and_check(NodeId, 0x3340, 0x00);
+    Can_Sdo_Write(NodeId, 0x3341, 0x00, 1000); // VEL_Acc_dT
+    Can_Sdo_read_and_check(NodeId, 0x3341, 0x00);
+    Can_Sdo_Write(NodeId, 0x3342, 0x00, 3000); // VEL_Dec_dV   1000
+    Can_Sdo_read_and_check(NodeId, 0x3342, 0x00);
+    Can_Sdo_Write(NodeId, 0x3343, 0x00, 1000); // VEL_Dec_dT
+    Can_Sdo_read_and_check(NodeId, 0x3343, 0x00);
+    Can_Sdo_Write(NodeId, 0x3344, 0x00, 1000); // VEL_Dec_QuickStop_dV
+    Can_Sdo_read_and_check(NodeId, 0x3344, 0x00);
+    Can_Sdo_Write(NodeId, 0x3345, 0x00, 100); // VEL_Dec_QuickStop_dT
+    Can_Sdo_read_and_check(NodeId, 0x3345, 0x00);
+    Can_Sdo_Write(NodeId, 0x334c, 0x00, 1); // VEL_RampType
+    Can_Sdo_read_and_check(NodeId, 0x334c, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x33c0, 0x00, 0); // VEL_BlockageGuarding_ConfigFlags
+    Can_Sdo_read_and_check(NodeId, 0x33c0, 0x00);
+    Can_Sdo_Write(NodeId, 0x33c0, 0x01, -1); // VEL_BlockageGuarding_VelLow
+    Can_Sdo_read_and_check(NodeId, 0x33c0, 0x01);
+    Can_Sdo_Write(NodeId, 0x33c0, 0x02, -1); // VEL_BlockageGuarding_VelHigh
+    Can_Sdo_read_and_check(NodeId, 0x33c0, 0x02);
+    Can_Sdo_Write(NodeId, 0x33c0, 0x03, 10); // VEL_BlockageGuarding_Time
+    Can_Sdo_read_and_check(NodeId, 0x33c0, 0x03);
+
+    Can_Sdo_Write(NodeId, 0x3502, 0x00, 1); // SVEL_ScaleNum
+    Can_Sdo_read_and_check(NodeId, 0x3502, 0x00);
+    Can_Sdo_Write(NodeId, 0x3503, 0x00, 1); // SVEL_ScaleDen
+    Can_Sdo_read_and_check(NodeId, 0x3503, 0x00);
+    Can_Sdo_Write(NodeId, 0x3504, 0x00, 1280); // SVEL_DesiredValue_Source
+    Can_Sdo_read_and_check(NodeId, 0x3504, 0x00);
+    Can_Sdo_Write(NodeId, 0x3505, 0x00, 1000); // SVEL_DesiredValue_Reference
+    Can_Sdo_read_and_check(NodeId, 0x3505, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3510, 0x00, 700); // SVEL_Kp
+    Can_Sdo_read_and_check(NodeId, 0x3510, 0x00);
+    Can_Sdo_Write(NodeId, 0x3511, 0x00, 50); // SVEL_Ki
+    Can_Sdo_read_and_check(NodeId, 0x3511, 0x00);
+    Can_Sdo_Write(NodeId, 0x3517, 0x00, 0); // SVEL_KIxR
+    Can_Sdo_read_and_check(NodeId, 0x3517, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3521, 0x00, 65535); // SVEL_LimitMaxPos
+    Can_Sdo_read_and_check(NodeId, 0x3521, 0x00);
+    Can_Sdo_Write(NodeId, 0x3523, 0x00, 65535); // SVEL_LimitMaxNeg
+    Can_Sdo_read_and_check(NodeId, 0x3523, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x35a1, 0x00, 16383); // SVEL_MaxVelRange
+    Can_Sdo_read_and_check(NodeId, 0x35a1, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x3720, 0x00, -2147483648); // POS_PositionLimitMin
+    Can_Sdo_read_and_check(NodeId, 0x3720, 0x00);
+    Can_Sdo_Write(NodeId, 0x3720, 0x01, 2147483647); // POS_PositionLimitMax
+    Can_Sdo_read_and_check(NodeId, 0x3720, 0x01);
+
+    Can_Sdo_Write(NodeId, 0x3732, 0x00, 1000); // POS_FollowingErrorWindow
+    Can_Sdo_read_and_check(NodeId, 0x3732, 0x00);
+    Can_Sdo_Write(NodeId, 0x3732, 0x01, 4294967295); // POS_FollowingErrorWindowDyn
+    Can_Sdo_read_and_check(NodeId, 0x3732, 0x01);
+    Can_Sdo_Write(NodeId, 0x3733, 0x00, 0); // POS_FollowingErrorTime
+    Can_Sdo_read_and_check(NodeId, 0x3733, 0x00);
+    Can_Sdo_Write(NodeId, 0x3733, 0x01, 65535); // POS_FollowingErrorTimeDyn
+    Can_Sdo_read_and_check(NodeId, 0x3733, 0x01);
+    Can_Sdo_Write(NodeId, 0x3734, 0x00, 4294967295); // POS_FollowingErrorLimit
+    Can_Sdo_read_and_check(NodeId, 0x3734, 0x00);
+    Can_Sdo_Write(NodeId, 0x373a, 0x00, 4294967295); // POS_PositionWindow
+    Can_Sdo_read_and_check(NodeId, 0x373a, 0x00);
+    Can_Sdo_Write(NodeId, 0x373b, 0x00, 0); // POS_PositionWindowTime
+    Can_Sdo_read_and_check(NodeId, 0x373b, 0x00);
+    Can_Sdo_Write(NodeId, 0x373b, 0x01, 65535); // POS_PositionWindowTimeout
+    Can_Sdo_read_and_check(NodeId, 0x373b, 0x01);
+    Can_Sdo_Write(NodeId, 0x373c, 0x00, 0); // POS_ReachedConfigFlags
+    Can_Sdo_read_and_check(NodeId, 0x373c, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x374c, 0x00, 1); // POS_RampType
+    Can_Sdo_read_and_check(NodeId, 0x374c, 0x00);
+
+    Can_Sdo_Write(NodeId, 0x37a4, 0x01, 0); // POS_GearBacklashComp_Path
+    Can_Sdo_read_and_check(NodeId, 0x37a4, 0x01);
+    Can_Sdo_Write(NodeId, 0x37a4, 0x02, 100); // POS_GearBacklashComp_Vel
+    Can_Sdo_read_and_check(NodeId, 0x37a4, 0x02);
+
+    Can_Sdo_Write(NodeId, 0x37b2, 0x00, 0); // POS_HomingMethod
+    Can_Sdo_read_and_check(NodeId, 0x37b2, 0x00);
+    Can_Sdo_Write(NodeId, 0x37b3, 0x00, 0); // POS_HomingOffset
+    Can_Sdo_read_and_check(NodeId, 0x37b3, 0x00);
+    Can_Sdo_Write(NodeId, 0x37b4, 0x00, 0); // POS_HomingVelSwitch
+    Can_Sdo_read_and_check(NodeId, 0x37b4, 0x00);
+    Can_Sdo_Write(NodeId, 0x37b4, 0x01, 0); // POS_HomingVelZero
+    Can_Sdo_read_and_check(NodeId, 0x37b4, 0x01);
+    Can_Sdo_Write(NodeId, 0x37b5, 0x00, 60000); // POS_HomingAcc
+    Can_Sdo_read_and_check(NodeId, 0x37b5, 0x00);
+    Can_Sdo_Write(NodeId, 0x37b5, 0x01, 0); // POS_HomingDec
+    Can_Sdo_read_and_check(NodeId, 0x37b5, 0x01);
+    Can_Sdo_Write(NodeId, 0x37b6, 0x00, 2147483647); // POS_HomingMaxIndexPath
+    Can_Sdo_read_and_check(NodeId, 0x37b6, 0x00);
+    Can_Sdo_Write(NodeId, 0x37b6, 0x01, 0); // POS_HomingIndexOffset
+    Can_Sdo_read_and_check(NodeId, 0x37b6, 0x01);
+    Can_Sdo_Write(NodeId, 0x37b7, 0x00, 0); // POS_HomingBlock_ConfigFlags
+    Can_Sdo_read_and_check(NodeId, 0x37b7, 0x00);
+    Can_Sdo_Write(NodeId, 0x37b7, 0x01, 10); // POS_HomingBlock_VelLow
+    Can_Sdo_read_and_check(NodeId, 0x37b7, 0x01);
+    Can_Sdo_Write(NodeId, 0x37b7, 0x02, -1); // POS_HomingBlock_VelHigh
+    Can_Sdo_read_and_check(NodeId, 0x37b7, 0x02);
+    Can_Sdo_Write(NodeId, 0x37b7, 0x03, 1); // POS_HomingBlock_Time
+    Can_Sdo_read_and_check(NodeId, 0x37b7, 0x03);
+    Can_Sdo_Write(NodeId, 0x37b7, 0x04, -1); // POS_HomingBlock_FollowingErrorWindow
+    Can_Sdo_read_and_check(NodeId, 0x37b7, 0x04);
+
+    Can_Sdo_Write(NodeId, 0x39a0, 0x00, 0); // MOTOR_BrakeManagement_Config
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x00);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x06, -1); // MOTOR_BrakeManagement_VelMin
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x06);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x07, 0); // MOTOR_BrakeManagement_Din
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x07);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x08, -352); // MOTOR_BrakeManagement_Dout
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x08);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x09, 10000); // MOTOR_BrakeManagement_UpBrakeOff
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x09);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x0a, 8000); // MOTOR_BrakeManagement_UpBrakeOn
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x0a);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x10, 0); // MOTOR_BrakeManagement_OffDelay1
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x10);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x11, 0); // MOTOR_BrakeManagement_OffDelay2
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x11);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x12, 0); // MOTOR_BrakeManagement_OnDelay1
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x12);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x13, 0); // MOTOR_BrakeManagement_OnDelay2
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x13);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x18, 1); // MOTOR_BrakeManagement_OffOrConditionFlags
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x18);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x19, 0); // MOTOR_BrakeManagement_OffAndConditionFlags
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x19);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x1a, 1); // MOTOR_BrakeManagement_OnOrConditionFlags
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x1a);
+    Can_Sdo_Write(NodeId, 0x39a0, 0x1b, 0); // MOTOR_BrakeManagement_OnAndConditionFlags
+    Can_Sdo_read_and_check(NodeId, 0x39a0, 0x1b);
+
+    Can_Sdo_Write(NodeId, 0x3b00, 0x00, 1); // FCT_Control
+    Can_Sdo_read_and_check(NodeId, 0x3b00, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b00, 0x01, 0); // FCT_Precision
+    Can_Sdo_read_and_check(NodeId, 0x3b00, 0x01);
+
+    Can_Sdo_Write(NodeId, 0x3b10, 0x00, 0); // FCT_Polarity
+    Can_Sdo_read_and_check(NodeId, 0x3b10, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b11, 0x00, 0); // FCT_PosNotationIndex
+    Can_Sdo_read_and_check(NodeId, 0x3b11, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b12, 0x00, 180); // FCT_PosDimIndex
+    Can_Sdo_read_and_check(NodeId, 0x3b12, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b13, 0x00, 0); // FCT_VelNotationIndex
+    Can_Sdo_read_and_check(NodeId, 0x3b13, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b14, 0x00, 164); // FCT_VelDimIndex
+    Can_Sdo_read_and_check(NodeId, 0x3b14, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b15, 0x00, 0); // FCT_AccNotationIndex
+    Can_Sdo_read_and_check(NodeId, 0x3b15, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b16, 0x00, 176); // FCT_AccDimIndex
+    Can_Sdo_read_and_check(NodeId, 0x3b16, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b17, 0x00, 1); // FCT_PosScaleNum
+    Can_Sdo_read_and_check(NodeId, 0x3b17, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b17, 0x01, 1); // FCT_PosScaleDen
+    Can_Sdo_read_and_check(NodeId, 0x3b17, 0x01);
+    Can_Sdo_Write(NodeId, 0x3b18, 0x00, 1); // FCT_VelScaleNum
+    Can_Sdo_read_and_check(NodeId, 0x3b18, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b18, 0x01, 1); // FCT_VelScaleDen
+    Can_Sdo_read_and_check(NodeId, 0x3b18, 0x01);
+    Can_Sdo_Write(NodeId, 0x3b19, 0x00, 1); // FCT_GearRatio_MotorRev
+    Can_Sdo_read_and_check(NodeId, 0x3b19, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b19, 0x01, 1); // FCT_GearRatio_ShaftRev
+    Can_Sdo_read_and_check(NodeId, 0x3b19, 0x01);
+    Can_Sdo_Write(NodeId, 0x3b1a, 0x00, 1); // FCT_FeedConstant_Feed
+    Can_Sdo_read_and_check(NodeId, 0x3b1a, 0x00);
+    Can_Sdo_Write(NodeId, 0x3b1a, 0x01, 1); // FCT_FeedConstant_ShaftRev
+    Can_Sdo_read_and_check(NodeId, 0x3b1a, 0x01);
+
+    //////////////////////////////////////////
+    // CAN PDO's Mapping //
+    //////////////////////////////////////////
+
+    ////////// 1st TX-PDO //////////
+    // TXCobId = 0x180 + NodeId;                     // CobId for the first TX-PDO (motor is sending)
+    // RXCobId = 0x200 + NodeId;                     // CobId for the first RX-PDO (motor is receiving)
+    Can_Sdo_Write(NodeId, 0x1A00, 0, 0); // delete mapping table first
+    Can_Sdo_read_and_check(NodeId, 0x1A00, 0);
+    Can_Sdo_Write(NodeId, 0x1A00, 1, 0x37620020); // set first object (Actual position inc.):
+    // 08 = 1 byte, 10 = 2 bytes, 20 = 4 bytes
+    Can_Sdo_read_and_check(NodeId, 0x1A00, 1);
+    Can_Sdo_Write(NodeId, 0x1A00, 2, 0x32620120); // set second object (Filtered Current current in mA):
+    Can_Sdo_read_and_check(NodeId, 0x1A00, 2);
+
+    Can_Sdo_Write(NodeId, 0x1A00, 0, 2); // write numbers of objects into the table = 2
+    Can_Sdo_read_and_check(NodeId, 0x1A00, 0);
+
+    Can_Sdo_Write(NodeId, 0x1800, 2, 1); // asynchronous (see above)
+    Can_Sdo_read_and_check(NodeId, 0x1800, 2);
+    Can_Sdo_Write(NodeId, 0x1800, 3, 100); // inhibit time in 100µs
+    Can_Sdo_read_and_check(NodeId, 0x1800, 3);
+
+    ////////// 2nd TX-PDO //////////
+    // TXCobId = 0x280 + NodeId;                     // CobId for the second TX-PDO (motor is sending     2
+    // RXCobId = 0x300 + NodeId;                     // CobId for the second RX-PDO (motor is receiving)   2
+    Can_Sdo_Write(NodeId, 0x1A01, 0, 0); // delete mapping table first
+    Can_Sdo_read_and_check(NodeId, 0x1A01, 0);
+    Can_Sdo_Write(NodeId, 0x1A01, 1, 0x37610020); // Actual Command Position
+    Can_Sdo_read_and_check(NodeId, 0x1A01, 1);
+    Can_Sdo_Write(NodeId, 0x1A01, 2, 0x37600020); // set third object (Target position):
+    Can_Sdo_read_and_check(NodeId, 0x1A01, 2);
+    Can_Sdo_Write(NodeId, 0x1A01, 0, 2); // write numbers of objects into the table = 2
+    Can_Sdo_read_and_check(NodeId, 0x1A01, 0);
+    Can_Sdo_Write(NodeId, 0x1801, 2, 1); // asynchronous (see above)
+    Can_Sdo_read_and_check(NodeId, 0x1801, 2);
+    Can_Sdo_Write(NodeId, 0x1801, 3, 100); // inhibit time in 100µs
+    Can_Sdo_read_and_check(NodeId, 0x1801, 3);
+
+    ////////// 3rd TX-PDO //////////
+    // TXCobId = 0x380 + NodeId;                     // CobId for the second TX-PDO (motor is sending)
+    // RXCobId = 0x400 + NodeId;                     // CobId for the second RX-PDO (motor is receiving)
+    Can_Sdo_Write(NodeId, 0x1A02, 0, 0); // delete mapping table first
+    Can_Sdo_read_and_check(NodeId, 0x1A02, 0);
+    Can_Sdo_Write(NodeId, 0x1A02, 1, 0x3A040120); // set 1st object (Actual Velocity in RPM)
+    Can_Sdo_read_and_check(NodeId, 0x1A02, 1);
+    Can_Sdo_Write(NodeId, 0x1A02, 2, 0x35000020); // set 2nd object (SVEl des (RPM)
+    Can_Sdo_read_and_check(NodeId, 0x1A02, 2);
+    Can_Sdo_Write(NodeId, 0x1A02, 0, 2); // write numbers of objects into the table = 2
+    Can_Sdo_read_and_check(NodeId, 0x1A02, 0);
+    Can_Sdo_Write(NodeId, 0x1802, 2, 1); // asynchronous (see above)
+    Can_Sdo_read_and_check(NodeId, 0x1802, 2);
+    Can_Sdo_Write(NodeId, 0x1802, 3, 100); // inhibit time in 100µs
+    Can_Sdo_read_and_check(NodeId, 0x1802, 3);
+
+    ////////// 4th TX-PDO //////////
+    // TXCobId = 0x480 + NodeId_DK                     // CobId for the second TX-PDO (motor is sending)
+    // RXCobId = 0x500 + NodeId_DK                     // CobId for the second RX-PDO (motor is receiving)
+    Can_Sdo_Write(NodeId, 0x1A03, 0, 0); // delete mapping table first
+    Can_Sdo_read_and_check(NodeId, 0x1A03, 0);
+    Can_Sdo_Write(NodeId, 0x1A03, 1, 0x31000010); // set 1st object (Analog Input 0 in mv remmenber NEGATIVE):
+    Can_Sdo_read_and_check(NodeId, 0x1A03, 1);
+    Can_Sdo_Write(NodeId, 0x1A03, 2, 0x31110020); // set 2nd object (Motor Voltage (mV)
+    Can_Sdo_read_and_check(NodeId, 0x1A03, 2);
+    Can_Sdo_Write(NodeId, 0x1A03, 0, 2); // write numbers of objects into the table = 2
+    Can_Sdo_read_and_check(NodeId, 0x1A03, 0);
+    Can_Sdo_Write(NodeId, 0x1803, 2, 1); // asynchronous (see above)
+    Can_Sdo_read_and_check(NodeId, 0x1803, 2);
+    Can_Sdo_Write(NodeId, 0x1803, 3, 100); // inhibit time in 100µs
+    Can_Sdo_read_and_check(NodeId, 0x1803, 3);
+
+    Can_Sdo_Write(NodeId, 0x3003, 0, 7); // Device mode "position mode"
+    Can_Sdo_read_and_check(NodeId, 0x3003, 0);
+
+    Can_Sdo_Write(NodeId, 0x3000, 0, 1); // Reset error register
+    Can_Sdo_read_and_check(NodeId, 0x3000, 0);
+    Can_Sdo_Write(NodeId, 0x3004, 0, 1); // Enable power stage
+    Can_Sdo_read_and_check(NodeId, 0x3004, 0);
+
+    Can_Sdo_Write(NodeId, 0x3300, 0x00, 400); // VEL_DesiredValue [rpm]
+    Can_Sdo_read_and_check(NodeId, 0x3300, 0x00);
+
+    return 0;
+}
