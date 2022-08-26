@@ -37,15 +37,15 @@ uint32_t motor_current, motor_position, load_cell_voltage;
 // Parameter NodeId
 uint8_t NodeId = 127;
 
- static gboolean on_timeout(gpointer user_data)
- {
+static gboolean on_timeout(gpointer user_data)
+{
 
-     /* update the force value on the GUI*/
-     gchar *label_str = g_strdup_printf(" %f N", (13.636 * load_cell_voltage - 2727));
-     gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
-     g_free(label_str);
-     return G_SOURCE_CONTINUE;
- }
+    /* update the force value on the GUI*/
+    gchar *label_str = g_strdup_printf(" %.03f N", (13.636 * load_cell_voltage - 2727));
+    gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
+    g_free(label_str);
+    return G_SOURCE_CONTINUE;
+}
 
 void *data_recording_thread_function(void *args)
 {
@@ -75,16 +75,16 @@ void *motor_control_thread_function(void *args)
             if (motor_activated)
             {
                 Can_Sdo_Write_NULL(0x80);
-
-                /**
-                 * @todo record the PDO data in a csv file.
-                 *
-                 */
+                //
+                ///**
+                // * @todo record the PDO data in a csv file.
+                // *
+                // */
                 get_Pdo_response(&motor_current, &motor_position,
                                  &load_cell_voltage);
-                // if the brake is activated, go to the target position
+                //// if the brake is activated, go to the target position
                 Can_Sdo_Write(NodeId, 0x3790, 0, target_position);
-                Can_Sdo_read_and_check(NodeId, 0x3790, 0);
+                // Can_Sdo_read_and_check(NodeId, 0x3790, 0);
             }
             else
             {
@@ -114,10 +114,15 @@ void *motor_control_thread_function(void *args)
                 // move to position 0
                 Can_Sdo_Write(NodeId, 0x3790, 0, 0);
                 Can_Sdo_read_and_check(NodeId, 0x3790, 0);
+                
+                
+                Can_Sdo_Write_NULL(0x80);
+                get_Pdo_response(&motor_current, &motor_position,
+                                 &load_cell_voltage);
             }
         }
 
-        usleep(20 * 1000); // 20 ms
+        usleep(1000 * 1000); // 200 ms
     }
     return NULL;
 }

@@ -482,12 +482,12 @@ int mcc118_continuous_scan(void)
                     return -1;
                 }
 
-                printf("debug 0 \n");
+                // printf("debug 0 \n");
                 result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
                                                 SCAN_RATE, OPTS_CONTINUOUS);
                 STOP_ON_ERROR(result, address);
 
-                printf("debug 1 \n");
+                // printf("debug 1 \n");
 
                 gettimeofday(&last_time, NULL);
 
@@ -512,18 +512,18 @@ int mcc118_continuous_scan(void)
                 // Since the read_request_size is set to -1 (READ_ALL_AVAILABLE), this
                 // function returns immediately with whatever samples are available (up
                 // to user_buffer_size) and the timeout parameter is ignored.
-                printf("debug 2 \n");
+                // printf("debug 2 \n");
                 result = mcc118_a_in_scan_read(address, &read_status, read_request_size,
                                                TIME_OUT, read_buf, user_buffer_size, &samples_read_per_channel);
-                printf("address: %d\n",address);
-                printf("read_status: %d\n",read_status);
-                printf("read_request_size: %d\n",read_request_size);
-                printf("user_buffer_size:%d\n",user_buffer_size);
-                printf("samples_read_per_channel:%d\n",samples_read_per_channel);
-                printf("debug 3 \n");
+                // printf("address: %d\n",address);
+                // printf("read_status: %d\n",read_status);
+                // printf("read_request_size: %d\n",read_request_size);
+                // printf("user_buffer_size:%d\n",user_buffer_size);
+                // printf("samples_read_per_channel:%d\n",samples_read_per_channel);
+                // printf("debug 3 \n");
                 STOP_ON_ERROR(result, address);
 
-                printf("debug 4 \n");
+                // printf("debug 4 \n");
                 if (!check_overrun(read_status))
                 {
                     stop_and_cleanup(address);
@@ -538,7 +538,7 @@ int mcc118_continuous_scan(void)
                     return -1;
                 };
 
-                printf("debug 5 \n");
+                // printf("debug 5 \n");
                 /* Check the logging time*/
                 gettimeofday(&this_time, NULL);
 
