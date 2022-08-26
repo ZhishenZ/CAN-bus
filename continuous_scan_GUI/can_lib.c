@@ -444,7 +444,7 @@ void get_Pdo_response(uint32_t *motor_current,
             {
             case 0x1FF:
                 check_4_pdos[0] = 1;
-                *motor_position = frame.data[0] + (frame.data[1] << 4) + (frame.data[2] << 8) + (frame.data[3] << 12);
+                *motor_position = frame.data[0] + (frame.data[1] << 8) + (frame.data[2] << 16) + (frame.data[3] << 24);
                 break;
             case 0x2FF:
                 check_4_pdos[1] = 1;
@@ -454,7 +454,8 @@ void get_Pdo_response(uint32_t *motor_current,
                 break;
             case 0x4FF:
                 check_4_pdos[3] = 1;
-                *load_cell_voltage = frame.data[0] + (frame.data[1] << 4);
+                *load_cell_voltage = frame.data[0] + (frame.data[1] << 8);
+
                 break;
             default:
                 break;

@@ -41,7 +41,7 @@ static gboolean on_timeout(gpointer user_data)
 {
 
     /* update the force value on the GUI*/
-    gchar *label_str = g_strdup_printf(" %.03f N", (13.636 * load_cell_voltage - 2727));
+    gchar *label_str = g_strdup_printf(" %.0f N", (13.636 * load_cell_voltage - 2727));
     gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
     g_free(label_str);
     return G_SOURCE_CONTINUE;
@@ -49,7 +49,8 @@ static gboolean on_timeout(gpointer user_data)
 
 void *data_recording_thread_function(void *args)
 {
-    mcc118_continuous_scan();
+    // mcc118_continuous_scan();
+    mcc118_continuous_scan_new();
     // watch for events
     return NULL;
 }
@@ -122,7 +123,7 @@ void *motor_control_thread_function(void *args)
             }
         }
 
-        usleep(1000 * 1000); // 200 ms
+        usleep(20 * 1000); // 20 ms
     }
     return NULL;
 }

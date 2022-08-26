@@ -589,3 +589,148 @@ int mcc118_continuous_scan(void)
     }
     return 0;
 }
+
+int mcc118_continuous_scan_new(void)
+{
+    int result = RESULT_SUCCESS;
+
+    char channel_string[512];
+
+    // Set the channel mask which is used by the library function
+    // mcc118_a_in_scan_start to specify the channels to acquire.
+    // The functions below, will parse the channel mask into a
+    // character string for display purposes.
+    uint8_t channel_mask = {CHAN0 | CHAN1 | CHAN2 | CHAN3 | CHAN4 | CHAN5 | CHAN6 | CHAN7};
+    char channel_name[8][32] =
+        {"Chan0", "Chan1", "Chan2", "Chan3", "Chan4", "Chan5", "Chan6", "Chan7"};
+
+    convert_chan_mask_to_string(channel_mask, channel_string);
+
+    uint32_t samples_per_channel = 0;
+    uint8_t address = 0;
+    int max_channel_array_length = mcc118_info()->NUM_AI_CHANNELS;
+    int channel_array[max_channel_array_length];
+    uint8_t num_channels = convert_chan_mask_to_array(channel_mask, channel_array);
+    uint16_t read_status = 0;
+    uint32_t samples_read_per_channel = 0;
+    uint32_t user_buffer_size = 1000 * num_channels;
+    double read_buf[user_buffer_size];
+    int32_t read_request_size = READ_ALL_AVAILABLE;
+    struct timeval this_time, last_time;
+    double elapsed_time = 0;
+    const double dt = 1.0 / SCAN_RATE * 1000; // convert into miliseconds
+    FILE *log_file_ptr = NULL;                // file pointer
+
+    if (!mcc118_init_print(num_channels, SCAN_RATE, &address,
+                           OPTS_CONTINUOUS, channel_mask, channel_string))
+    {
+        return -1;
+    }
+
+    // printf("debug 0 \n");
+    result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
+                                    SCAN_RATE, OPTS_CONTINUOUS);
+    STOP_ON_ERROR(result, address);
+
+    /* The while loop checks if the switch button data_recording_active is on */
+
+    do
+    {
+
+        usleep(200000);
+        // Since the read_request_size is set to -1 (READ_ALL_AVAILABLE), this
+        // function returns immediately with whatever samples are available (up
+        // to user_buffer_size) and the timeout parameter is ignored.
+        // printf("debug 2 \n");
+        result = mcc118_a_in_scan_read(address, &read_status, read_request_size,
+                                       TIME_OUT, read_buf, user_buffer_size, &samples_read_per_channel);
+        // printf("address: %d\n",address);
+        // printf("read_status: %d\n",read_status);
+        // printf("read_request_size: %d\n",read_request_size);
+        // printf("user_buffer_size:%d\n",user_buffer_size);
+        // printf("samples_read_per_channel:%d\n",samples_read_per_channel);
+        // printf("debug 3 \n");
+        STOP_ON_ERROR(result, address);
+
+        // printf("debug 4 \n");
+        if (!check_overrun(read_status))
+        {
+            stop_and_cleanup(address);
+            return -1;
+        }
+        // printf("debug 4 \n");
+        /* if the data recording switch is toggled  */
+        if (data_recording_active)
+        {
+
+            /*if the log file is not created*/
+            if (!log_file_ptr)
+            {
+                if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+                {
+
+                    stop_and_cleanup(address);
+                    return -1;
+                }
+                gettimeofday(&last_time, NULL);
+            }
+
+            if (this_time.tv_sec - last_time.tv_sec >= LOGGING_TIME)
+            {
+
+                fclose(log_file_ptr);
+
+                if (!create_mcc118_log_file(&log_file_ptr, channel_mask, channel_name, num_channels))
+                {
+
+                    stop_and_cleanup(address);
+                    return -1;
+                }
+
+                printf("\n-----------------------------"
+                       "\nMaximal logging time reached.\nOld files were closed.\n");
+                // close the files and creat a new file and add the header to the files
+
+                printf("New files created.\n-----------------------------\n\n");
+
+                // update last_time
+                last_time = this_time;
+            }
+            // printf("debug 6 \n");
+#ifdef PRINT_DATA_IN_TERMINAL
+            print_data(samples_read_per_channel, num_channels, read_buf);
+#endif
+            // order a file
+            // printf("debug 7 \n");
+
+            if (!write_log_file(log_file_ptr, num_channels, read_buf,
+                                &samples_read_per_channel, &elapsed_time, dt))
+            {
+                fprintf(stderr, "\nWrite log file failed.\n");
+                stop_and_cleanup(address);
+                return -1;
+            };
+
+            gettimeofday(&this_time, NULL);
+        }
+        else
+        {
+
+            if (log_file_ptr)
+            {
+                fclose(log_file_ptr);
+                log_file_ptr = NULL;
+                elapsed_time = 0; // count the time for the new created file from 0 again.
+                printf("\n-----------------------------"
+                       "\nData recording stopped. \n");
+            }
+        }
+
+        // printf("debug 5 \n");
+        /* Check the logging time*/
+
+    } while ((result == RESULT_SUCCESS) &&
+             ((read_status & STATUS_RUNNING) == STATUS_RUNNING));
+
+    return 0;
+}
