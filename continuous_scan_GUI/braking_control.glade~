@@ -31,12 +31,12 @@
             <property name="can-focus">False</property>
             <property name="label" translatable="yes">00.0</property>
             <attributes>
-              <attribute name="font-desc" value="Sans Bold 13"/>
+              <attribute name="font-desc" value="Sans 13"/>
               <attribute name="foreground" value="#000000000000"/>
             </attributes>
           </object>
           <packing>
-            <property name="x">352</property>
+            <property name="x">339</property>
             <property name="y">33</property>
           </packing>
         </child>
@@ -180,8 +180,8 @@ STEP 2</property>
             <property name="can-focus">False</property>
           </object>
           <packing>
-            <property name="x">500</property>
-            <property name="y">500</property>
+            <property name="x">440</property>
+            <property name="y">231</property>
           </packing>
         </child>
       </object>
