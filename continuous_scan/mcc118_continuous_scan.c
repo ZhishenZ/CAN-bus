@@ -643,7 +643,7 @@ int mcc118_continuous_scan(void)
     do
     {
 
-        usleep(2000000);
+        usleep(200*1000);
         // Since the read_request_size is set to -1 (READ_ALL_AVAILABLE), this
         // function returns immediately with whatever samples are available (up
         // to user_buffer_size) and the timeout parameter is ignored.

@@ -6,7 +6,7 @@ CC = gcc
 FLAGS = -lpthread -ldaqhats -lm `pkg-config --cflags --libs gtk+-3.0` -export-dynamic
 CFLAGS = -Wall -Wno-deprecated-declarations -Wno-format-security -I/usr/local/include -g
 
-$(PROG): $(PROG).c
+$(PROG): $(CAN_BUS_LIB).c $(MCC_118_LIB).c $(PROG).c
 		$(CC) -Wno-format $(CAN_BUS_LIB).c $(MCC_118_LIB).c $(PROG).c $(FLAGS) $(CFLAGS) -o $(PROG)
 
 

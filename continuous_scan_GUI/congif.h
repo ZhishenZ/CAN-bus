@@ -3,7 +3,7 @@
 
 
 // logging time for each file in seconds
-#define LOGGING_TIME 120 // in seconds
+#define LOGGING_TIME 3600 // in seconds
 #define SCAN_RATE 1000  // Scan frequency
 #define TIME_OUT 5.0
 

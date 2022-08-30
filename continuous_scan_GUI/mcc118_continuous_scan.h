@@ -80,7 +80,4 @@ void print_header_info(uint8_t num_channels,char channel_string[512], int *chann
 
 int mcc118_continuous_scan(void);
 
-
-int mcc118_continuous_scan_new(void);
-
 #endif

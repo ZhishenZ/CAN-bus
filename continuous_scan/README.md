@@ -1,25 +1,30 @@
 # Continuous Scan Example
 
 ## About
-This example demonstrates how to perform a continuous acquisition on one or more 
+This program demonstrates how to perform a continuous acquisition on one or more 
 channels.
 
-Analog input data is acquired in blocks for a specified group of channels.
-
-The last sample of data for each channel is displayed for each block of data 
-received from the device. The acquisition is stopped when the Enter key is 
+The sensor data in eight channels will be stored in `YYYY_MM_DD_HH_MM_SS_TIMEZONE.csv` files. Analog input data is acquired in blocks for a specified group of channels. After the logging time is reached, the current `csv` file is closed and a new `csv` file will be created and the logging time is set to zero. The acquisition is stopped when the Enter key is 
 pressed.
 
-This example is compiled and ready-to-run, and can be customized to suit 
-your needs.
+The last sample of data for each channel is displayed for each block of data 
+received from the MCC 118 board. 
+
 
 ## Running the example
+
+TODO: Add the todo to install the libraries. 
+
+type `make` in the terminal to compile.
+
+type `./main` to run the program 
+
+
+
 To run the example, open a terminal window and enter the following commands:
 ```sh
    cd ~/daqhats/examples/c/mcc118/continuous_scan
    ./continuous_scan
 ```
 
-## Support/Feedback
-Contact technical support through our
-[support page](https://www.mccdaq.com/support/support_form.aspx).
+

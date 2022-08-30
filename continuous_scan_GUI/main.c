@@ -37,106 +37,39 @@ uint32_t motor_current, motor_position, load_cell_voltage;
 // Parameter NodeId
 uint8_t NodeId = 127;
 
-static gboolean on_timeout(gpointer user_data)
-{
+/**
+ * @brief This function updates values shown in the GUI.
+ *        The updated frequency can be modified by changing
+ *        the first input variable of the g_timeout_add funciton.
+ */
+static gboolean on_timeout(gpointer user_data);
 
-    /* update the force value on the GUI*/
-    gchar *label_str = g_strdup_printf(" %.0f N", (13.636 * load_cell_voltage - 2727));
-    gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
-    g_free(label_str);
-    return G_SOURCE_CONTINUE;
-}
+/**
+ * @brief a separate thread for data recording.
+ */
+void *data_recording_thread_function(void *args);
 
-void *data_recording_thread_function(void *args)
-{
-    // mcc118_continuous_scan();
-    mcc118_continuous_scan_new();
-    // watch for events
-    return NULL;
-}
+/**
+ * @brief a separate thread for motor control.
+ */
+void *motor_control_thread_function(void *args);
 
-void *motor_control_thread_function(void *args)
-{
-    int motor_activated = 0;
-    uint8_t pdo_start[2] = {0x01, NodeId};
-    uint8_t pdo_stop[2] = {0x80, NodeId};
-
-    while (1)
-    {
-        /*saturation function */
-        if (load_cell_voltage > 0xFFFF)
-        {
-            load_cell_voltage = 0;
-        }
-
-        if (activate_button_clicked) /* if the ACTIVATE switch button of GUI is clicked */
-        {
-            /* is the status of the motor is also active*/
-            /* read the motor response */
-            if (motor_activated)
-            {
-                Can_Sdo_Write_NULL(0x80);
-                //
-                ///**
-                // * @todo record the PDO data in a csv file.
-                // *
-                // */
-                get_Pdo_response(&motor_current, &motor_position,
-                                 &load_cell_voltage);
-                //// if the brake is activated, go to the target position
-                Can_Sdo_Write(NodeId, 0x3790, 0, target_position);
-                // Can_Sdo_read_and_check(NodeId, 0x3790, 0);
-            }
-            else
-            {
-                /* user want to activate the motor but the motor is physically not activated*/
-                /* activate the motor with a pdo message */
-                Can_Pdo_Write(0, pdo_start, sizeof(pdo_start) / sizeof(pdo_start[0]));
-
-                /* set the flag to true */
-                motor_activated = 1;
-            }
-        }
-        else /* if the STOP switch button of GUI is clicked */
-        {
-
-            if (motor_position == 0)
-            {
-
-                if (motor_activated)
-                {
-                    // poweroff motor
-                    Can_Pdo_Write(0, pdo_stop, sizeof(pdo_stop) / sizeof(pdo_stop[0]));
-                    motor_activated = 0;
-                }
-            }
-            else
-            {
-                // move to position 0
-                Can_Sdo_Write(NodeId, 0x3790, 0, 0);
-                Can_Sdo_read_and_check(NodeId, 0x3790, 0);
-                
-                
-                Can_Sdo_Write_NULL(0x80);
-                get_Pdo_response(&motor_current, &motor_position,
-                                 &load_cell_voltage);
-            }
-        }
-
-        usleep(20 * 1000); // 20 ms
-    }
-    return NULL;
-}
-
+/**
+ * @brief Configure the motor via SDO and PDO CAN messages.
+ *        press CTRL + Left Click to go to the motor can init code.
+ *
+ * @return int 0 for return successes
+ */
 int motor_can_init();
 
 int main(int argc, char *argv[])
 {
+    /* two threads for motor control and also for data recording thread. */
     pthread_t data_recording_thread, motor_control_thread;
+
     gtk_init(&argc, &argv); // init Gtk
 
     // establish contact with xml code used to adjust widget settings
-
     builder = gtk_builder_new_from_file("braking_control.glade");
     window = GTK_WIDGET(gtk_builder_get_object(builder, "window"));
 
@@ -162,12 +95,6 @@ int main(int argc, char *argv[])
     button_step_1 = GTK_WIDGET(gtk_builder_get_object(builder, "button_step_1"));
     button_step_2 = GTK_WIDGET(gtk_builder_get_object(builder, "button_step_2"));
 
-    // GdkColor color;
-    // gdk_color_parse("#0080FF", &color);
-    // gtk_widget_modify_fg(GTK_WIDGET(button_activate), GTK_STATE_SELECTED, &color);
-
-    // gtk_widget_modify_fg(GTK_WIDGET(button_activate), GTK_STATE_NORMAL, &color);
-
     /* switch */
     switch_data_recording = GTK_WIDGET(gtk_builder_get_object(builder, "switch_data_recording"));
 
@@ -179,17 +106,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* on_timeout is the control loop that is executed every 20 ms */
-    g_timeout_add(1000 /*ms*/, on_timeout, label_force_value);
+    /* on_timeout is the control loop that is executed every 0.2 second */
+    g_timeout_add(200 /*ms*/, on_timeout, label_force_value);
 
     /* create a data recording thread */
     pthread_create(&data_recording_thread, NULL, data_recording_thread_function, NULL);
     pthread_create(&motor_control_thread, NULL, motor_control_thread_function, NULL);
 
-    // usleep(1);
-    // mcc118_continuous_scan();
-
-    // bgtk_main();
     gtk_main();
     printf("\n\r");
     return EXIT_SUCCESS;
@@ -197,13 +120,11 @@ int main(int argc, char *argv[])
 
 void on_button_activate_clicked(GtkButton *b)
 {
-
     activate_button_clicked = 1;
-    printf("activate_button_clicked: %d\n", activate_button_clicked);
-    /**
-     * @todo change the status
-     *
-     */
+
+    gchar *label_str = g_strdup_printf("Ready");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+    g_free(label_str);
 }
 
 void on_button_stop_clicked(GtkButton *b)
@@ -211,59 +132,139 @@ void on_button_stop_clicked(GtkButton *b)
     /* deactivate the brake and set the position to 0 */
     activate_button_clicked = 0;
     target_position = 0;
-    /**
-     * @todo change the status
-     *
-     */
+
+    gchar *label_str = g_strdup_printf("Not Ready");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+    g_free(label_str);
 }
 
 void on_button_release_clicked(GtkButton *b)
 {
     target_position = 1000;
-    /**
-     * @todo change the status
-     *
-     */
+
+    gchar *label_str = g_strdup_printf("Releasing Ball Ramp");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+    g_free(label_str);
+
 }
 
 void on_button_step_1_clicked(GtkButton *b)
 {
     target_position = 460;
-    /**
-     * @todo change the status
-     *
-     */
+    gchar *label_str = g_strdup_printf("Braking Step 1");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+    g_free(label_str);
 }
 
 void on_button_step_2_clicked(GtkButton *b)
 {
     target_position = 0;
-    /**
-     * @todo change the status
-     *
-     */
+
+    /* set the label to "Full Closing Ball Ramp" */
+    gchar *label_str = g_strdup_printf("Full Closing Ball Ramp");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+    g_free(label_str);
+
 }
 
 void on_switch_data_recording_state_set(GtkSwitch *s)
 {
     gboolean T = gtk_switch_get_active(s);
-    if (T)
+    if (T) /* if the switch is active */
     {
-        // printf("Data recording is on.\n");
         data_recording_active = 1;
-
-        // printf("data_recording_active: %d\n",data_recording_active);
     }
     else
     {
-        // printf("Data recording is off.\n");
         data_recording_active = 0;
-        // printf("data_recording_active: %d\n",data_recording_active);
     }
-    /**
-     * @todo change the status
-     *
-     */
+}
+
+static gboolean on_timeout(gpointer user_data)
+{
+    /* update the force value on the GUI*/
+    gchar *label_str = g_strdup_printf(" %.0f N", (13.636 * load_cell_voltage - 2727));
+    gtk_label_set_label(GTK_LABEL(label_force_value), label_str);
+    g_free(label_str);
+    return G_SOURCE_CONTINUE;
+}
+
+void *data_recording_thread_function(void *args)
+{
+    mcc118_continuous_scan();
+    return NULL;
+}
+
+void *motor_control_thread_function(void *args)
+{
+    int motor_activated = 0;
+    uint8_t pdo_start[2] = {0x01, NodeId};
+    uint8_t pdo_stop[2] = {0x80, NodeId};
+
+    while (1)
+    {
+        /*saturation function to eliminate the negative values */
+        if (load_cell_voltage > 0xFFFF)
+        {
+            load_cell_voltage = 0;
+        }
+
+        if (activate_button_clicked) /* if the ACTIVATE switch button of GUI is clicked */
+        {
+            /* is the status of the motor is also active*/
+            /* read the motor response */
+            if (motor_activated)
+            {
+                Can_Sdo_Write_NULL(0x80);
+                //
+                ///**
+                // * @todo record the PDO data in a csv file.
+                // *
+                // */
+                get_Pdo_response(&motor_current, &motor_position,
+                                 &load_cell_voltage);
+                //// if the brake is activated, go to the target position
+                Can_Sdo_Write(NodeId, 0x3790, 0, target_position);
+                Can_Sdo_read_and_check(NodeId, 0x3790, 0);
+            }
+            else
+            {
+                /* user want to activate the motor but the motor is physically not activated*/
+                /* activate the motor with a pdo message */
+                Can_Pdo_Write(0, pdo_start, sizeof(pdo_start) / sizeof(pdo_start[0]));
+
+                /* set the motor_activated flag to true */
+                motor_activated = 1;
+            }
+        }
+        else /* if the STOP switch button of GUI is clicked */
+        {
+            /* if motor position is 0 and the motor_activated flag is on */
+            if (!motor_position && motor_activated)
+            {
+                // poweroff motor
+                Can_Pdo_Write(0, pdo_stop, sizeof(pdo_stop) / sizeof(pdo_stop[0]));
+                motor_activated = 0;
+            }
+            /* if the motor position is not 0 */
+            if (motor_position)
+            {
+                // move to position 0
+                Can_Sdo_Write(NodeId, 0x3790, 0, 0);
+                Can_Sdo_read_and_check(NodeId, 0x3790, 0);
+
+                /* send a sdo message to evoke PDO CAN messages from the motor
+                   to get the PDO message. */
+                Can_Sdo_Write_NULL(0x80);
+                /*read the response*/
+                get_Pdo_response(&motor_current, &motor_position,
+                                 &load_cell_voltage);
+            }
+        }
+
+        usleep(20 * 1000); // sleep for 20 ms
+    }
+    return NULL;
 }
 
 int motor_can_init()
@@ -279,6 +280,9 @@ int motor_can_init()
     if (create_log_file())
         return 1;
 
+    gchar *label_str = g_strdup_printf("Configuring Motor");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+
     uint8_t pdo_stop[2] = {0x80, NodeId};
     Can_Pdo_Write(0, pdo_stop, sizeof(pdo_stop) / sizeof(pdo_stop[0]));
 
@@ -290,8 +294,6 @@ int motor_can_init()
 
     Can_Sdo_Write(NodeId, 0x3000, 0x00, 0x82); // DEV_Cmd - Default parameter
     Can_Sdo_read_and_check(NodeId, 0x3000, 0x00);
-
-    // usleep(1000000);
 
     Can_Sdo_Write(NodeId, 0x3900, 0x00, 1); // MOTOR_Type
     Can_Sdo_read_and_check(NodeId, 0x3900, 0x00);
@@ -667,6 +669,10 @@ int motor_can_init()
 
     Can_Sdo_Write(NodeId, 0x3300, 0x00, 400); // VEL_DesiredValue [rpm]
     Can_Sdo_read_and_check(NodeId, 0x3300, 0x00);
+
+    label_str = g_strdup_printf("Ready");
+    gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
+    g_free(label_str);
 
     return 0;
 }

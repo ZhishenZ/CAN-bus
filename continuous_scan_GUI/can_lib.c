@@ -158,7 +158,7 @@ void Can_Pdo_Write(uint16_t can_id, uint8_t *data_array, uint8_t array_len)
 
 void *time_watcher(void *args)
 {
-    // pthread_setcancelstate(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
+
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     clk_t = clock();
     while (1)
