@@ -100,18 +100,18 @@ int main(int argc, char *argv[])
 
     gtk_widget_show(window);
 
-    if (motor_can_init() != EXIT_SUCCESS)
-    {
-        printf("CAN initialization failed. \n");
-        return 1;
-    }
+    // if (motor_can_init() != EXIT_SUCCESS)
+    // {
+    //     printf("CAN initialization failed. \n");
+    //     return 1;
+    // }
 
     /* on_timeout is the control loop that is executed every 0.2 second */
     g_timeout_add(200 /*ms*/, on_timeout, label_force_value);
 
     /* create a data recording thread */
-    pthread_create(&data_recording_thread, NULL, data_recording_thread_function, NULL);
-    pthread_create(&motor_control_thread, NULL, motor_control_thread_function, NULL);
+    // pthread_create(&data_recording_thread, NULL, data_recording_thread_function, NULL);
+    // pthread_create(&motor_control_thread, NULL, motor_control_thread_function, NULL);
 
     gtk_main();
     printf("\n\r");
@@ -142,7 +142,7 @@ void on_button_release_clicked(GtkButton *b)
 {
     target_position = 1000;
 
-    gchar *label_str = g_strdup_printf("Releasing Ball Ramp");
+    gchar *label_str = g_strdup_printf("Releasing\nBall Ramp");
     gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
     g_free(label_str);
 
@@ -161,7 +161,7 @@ void on_button_step_2_clicked(GtkButton *b)
     target_position = 0;
 
     /* set the label to "Full Closing Ball Ramp" */
-    gchar *label_str = g_strdup_printf("Full Closing Ball Ramp");
+    gchar *label_str = g_strdup_printf("Full Closing");
     gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
     g_free(label_str);
 
