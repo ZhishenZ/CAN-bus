@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include <daqhats/daqhats.h>
-#include "congif.h"
+#include "config.h"
 #include <time.h>
 #include <errno.h>
 #include <sys/time.h>

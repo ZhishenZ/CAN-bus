@@ -462,6 +462,7 @@ int mcc118_continuous_scan(void)
     {
         return -1;
     }
+    // print_header_info(num_channels, channel_string, channel_array);
 
     result = mcc118_a_in_scan_start(address, channel_mask, samples_per_channel,
                                     SCAN_RATE, OPTS_CONTINUOUS);
@@ -495,6 +496,7 @@ int mcc118_continuous_scan(void)
                     stop_and_cleanup(address);
                     return -1;
                 }
+                print_header_info(num_channels, channel_string, channel_array);
                 /*get the time when creating the file */
                 gettimeofday(&last_time, NULL);
             }
@@ -518,7 +520,7 @@ int mcc118_continuous_scan(void)
                 // close the files and creat a new file and add the header to the files
 
                 printf("New MCC118 log files created.\n-----------------------------\n\n");
-
+                print_header_info(num_channels, channel_string, channel_array);
                 // update last_time
                 last_time = this_time;
             }

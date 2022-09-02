@@ -6,7 +6,7 @@ CC = gcc
 FLAGS = -lpthread -ldaqhats -lm `pkg-config --cflags --libs gtk+-3.0` -export-dynamic
 CFLAGS = -Wall -Wno-deprecated-declarations -Wno-format-security -I/usr/local/include -g
 
-$(PROG): $(CAN_BUS_LIB).c $(MCC_118_LIB).c main.c
+$(PROG): $(CAN_BUS_LIB).c $(MCC_118_LIB).c main.c config.h
 		$(CC) -Wno-format $(CAN_BUS_LIB).c $(MCC_118_LIB).c main.c $(FLAGS) $(CFLAGS) -o $(PROG)
 
 
@@ -14,24 +14,3 @@ $(PROG): $(CAN_BUS_LIB).c $(MCC_118_LIB).c main.c
 
 clean:
 		rm $(PROG)
-
-
-# NAME = continuous_scan
-# OBJ = $(NAME).o
-# LIBS = -ldaqhats
-# CFLAGS = -Wall -I/usr/local/include -g
-# CC = gcc
-# EXTENSION = .c
-
-# all: $(NAME)
-
-# %.o: %$(EXTENSION) $(DEPS)
-# 	$(CC) -c -o $@ $< $(CFLAGS)
-
-# $(NAME): $(OBJ)
-# 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
-
-# .PHONY: clean
-
-# clean:
-# 	@rm -f *.o *~ core $(NAME)
