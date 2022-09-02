@@ -100,18 +100,18 @@ int main(int argc, char *argv[])
 
     gtk_widget_show(window);
 
-    // if (motor_can_init() != EXIT_SUCCESS)
-    // {
-    //     printf("CAN initialization failed. \n");
-    //     return 1;
-    // }
+    if (motor_can_init() != EXIT_SUCCESS)
+    {
+        printf("CAN initialization failed. \n");
+        return 1;
+    }
 
     /* on_timeout is the control loop that is executed every 0.2 second */
     g_timeout_add(200 /*ms*/, on_timeout, label_force_value);
 
     /* create a data recording thread */
-    // pthread_create(&data_recording_thread, NULL, data_recording_thread_function, NULL);
-    // pthread_create(&motor_control_thread, NULL, motor_control_thread_function, NULL);
+    pthread_create(&data_recording_thread, NULL, data_recording_thread_function, NULL);
+    pthread_create(&motor_control_thread, NULL, motor_control_thread_function, NULL);
 
     gtk_main();
     printf("\n\r");
@@ -145,7 +145,6 @@ void on_button_release_clicked(GtkButton *b)
     gchar *label_str = g_strdup_printf("Releasing\nBall Ramp");
     gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
     g_free(label_str);
-
 }
 
 void on_button_step_1_clicked(GtkButton *b)
@@ -164,7 +163,6 @@ void on_button_step_2_clicked(GtkButton *b)
     gchar *label_str = g_strdup_printf("Full Closing");
     gtk_label_set_label(GTK_LABEL(label_status_value), label_str);
     g_free(label_str);
-
 }
 
 void on_switch_data_recording_state_set(GtkSwitch *s)
@@ -198,11 +196,14 @@ void *data_recording_thread_function(void *args)
 void *motor_control_thread_function(void *args)
 {
     int motor_activated = 0;
+    struct timeval this_time, last_time;
+    FILE *pdo_log_file_p = NULL;
     uint8_t pdo_start[2] = {0x01, NodeId};
     uint8_t pdo_stop[2] = {0x80, NodeId};
 
     while (1)
     {
+
         /*saturation function to eliminate the negative values */
         if (load_cell_voltage > 0xFFFF)
         {
@@ -211,18 +212,49 @@ void *motor_control_thread_function(void *args)
 
         if (activate_button_clicked) /* if the ACTIVATE switch button of GUI is clicked */
         {
-            /* is the status of the motor is also active*/
+            /* if the status of the motor is also active*/
             /* read the motor response */
             if (motor_activated)
             {
+
+                if (data_recording_active)
+                {
+                    gettimeofday(&this_time, NULL);
+                    /* if the file is not created, create a new file */
+                    if (pdo_log_file_p == NULL)
+                    {
+                        printf("debug 1\n");
+                        pdo_log_file_p = create_log_file(pdo_log_file_p);
+                        last_time = this_time;
+                    }
+                    /*check the time out*/
+                    if (this_time.tv_sec - last_time.tv_sec >= LOGGING_TIME)
+                    {
+                        printf("debug 2\n");
+                        fclose(pdo_log_file_p);
+                        pdo_log_file_p = create_log_file(pdo_log_file_p);
+                        printf("\n-----------------------------"
+                               "\nMaximal logging time reached.\nOld PDO log files were closed.\n");
+                        printf("New PDO log files created.\n-----------------------------\n\n");
+                        last_time = this_time;
+                    }
+                }
+                else
+                { /*if the file is not closed, close the file*/
+                    if (pdo_log_file_p != NULL)
+                    {
+                        fclose(pdo_log_file_p);
+                        pdo_log_file_p = NULL;
+                    }
+                }
+
                 Can_Sdo_Write_NULL(0x80);
-                //
-                ///**
-                // * @todo record the PDO data in a csv file.
-                // *
-                // */
-                get_Pdo_response(&motor_current, &motor_position,
-                                 &load_cell_voltage);
+
+                // get_Pdo_response(&motor_current, &motor_position,
+                //                  &load_cell_voltage);
+
+                get_and_record_Pdo_response(&motor_current, &motor_position,
+                                            &load_cell_voltage, data_recording_active, pdo_log_file_p);
                 //// if the brake is activated, go to the target position
                 Can_Sdo_Write(NodeId, 0x3790, 0, target_position);
                 Can_Sdo_read_and_check(NodeId, 0x3790, 0);
@@ -235,6 +267,8 @@ void *motor_control_thread_function(void *args)
 
                 /* set the motor_activated flag to true */
                 motor_activated = 1;
+
+                last_time = this_time;
             }
         }
         else /* if the STOP switch button of GUI is clicked */
@@ -253,12 +287,47 @@ void *motor_control_thread_function(void *args)
                 Can_Sdo_Write(NodeId, 0x3790, 0, 0);
                 Can_Sdo_read_and_check(NodeId, 0x3790, 0);
 
+                /* record the data */
+                if (data_recording_active)
+                {
+                    gettimeofday(&this_time, NULL);
+                    /* if the file is not created, create a new file */
+                    if (pdo_log_file_p == NULL)
+                    {
+                        pdo_log_file_p = create_log_file(pdo_log_file_p);
+                        last_time = this_time;
+                    }
+
+                    /*check the time out*/
+                    if (this_time.tv_sec - last_time.tv_sec >= LOGGING_TIME)
+                    {
+
+                        fclose(pdo_log_file_p);
+                        pdo_log_file_p = create_log_file(pdo_log_file_p);
+                        printf("\n-----------------------------"
+                               "\nMaximal logging time reached.\nOld PDO log files were closed.\n");
+                        printf("New PDO log files created.\n-----------------------------\n\n");
+                        last_time = this_time;
+                    }
+                }
+                else
+                { /*if the file is not closed, close the file*/
+                    if (pdo_log_file_p != NULL)
+                    {
+                        fclose(pdo_log_file_p);
+                        pdo_log_file_p = NULL;
+                    }
+                }
+
                 /* send a sdo message to evoke PDO CAN messages from the motor
                    to get the PDO message. */
                 Can_Sdo_Write_NULL(0x80);
                 /*read the response*/
-                get_Pdo_response(&motor_current, &motor_position,
-                                 &load_cell_voltage);
+                // get_Pdo_response(&motor_current, &motor_position,
+                //                  &load_cell_voltage);
+
+                get_and_record_Pdo_response(&motor_current, &motor_position,
+                                            &load_cell_voltage, data_recording_active, pdo_log_file_p);
             }
         }
 
@@ -277,8 +346,8 @@ int motor_can_init()
     if (can_send_init(ifr, addr))
         return 1;
 
-    if (create_log_file())
-        return 1;
+    // if (create_log_file())
+    //     return 1;
 
     gchar *label_str = g_strdup_printf("Configuring Motor");
     gtk_label_set_label(GTK_LABEL(label_status_value), label_str);

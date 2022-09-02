@@ -25,6 +25,12 @@ To run the example, open a terminal window and enter the following commands:
    ./continuous_scan
 ```
 
+## Data recording
+When the data recording button is switched, only when the motor is activated, a loggind file for the PDO data will be created. However, the MCC 118 board is logging all the time.  
+
+## when the logging time ist reached, the control loop will take a time period more than a normal cycle. The control loop may become unstable because of the varing control loop period. 
+
+
 ## Support/Feedback
 Contact technical support through our
 [support page](https://www.mccdaq.com/support/support_form.aspx).

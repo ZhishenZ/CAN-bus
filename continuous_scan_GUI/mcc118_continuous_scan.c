@@ -376,7 +376,7 @@ int create_mcc118_log_file(FILE **log_file_ptr, uint8_t channel_mask, char chann
     char log_filename_device[512] = "";
 
     getcwd(path_LogFiles, sizeof(path_LogFiles));
-    strcat(path_LogFiles, "/LogFiles/");
+    strcat(path_LogFiles, "/Log_Files_MCC118/");
 
     // Initialize the output file
     this_time_t = time(NULL);
@@ -395,7 +395,7 @@ int create_mcc118_log_file(FILE **log_file_ptr, uint8_t channel_mask, char chann
     if (*log_file_ptr == NULL)
     {
         printf("Open file errno = %d reason %s \n", errno, strerror(errno));
-        printf("Please create a directory called \"LogFiles\" "
+        printf("Please create a directory called \"Log_Files_MCC118\" "
                "in the current directory \n\n");
 
         return 0;
@@ -514,10 +514,10 @@ int mcc118_continuous_scan(void)
                 }
 
                 printf("\n-----------------------------"
-                       "\nMaximal logging time reached.\nOld files were closed.\n");
+                       "\nMaximal logging time reached.\nOld MCC118 log files were closed.\n");
                 // close the files and creat a new file and add the header to the files
 
-                printf("New files created.\n-----------------------------\n\n");
+                printf("New MCC118 log files created.\n-----------------------------\n\n");
 
                 // update last_time
                 last_time = this_time;

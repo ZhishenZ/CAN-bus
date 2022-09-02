@@ -24,7 +24,7 @@ int can_send_init( struct ifreq ifr, struct sockaddr_can addr);
 
 void Can_Sdo_Write_NULL(uint16_t can_id);
 
-void close_can();
+void close_can(FILE* file_ptr);
 
 void Can_Sdo_Write( uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t data);
 
@@ -43,26 +43,19 @@ void *time_watcher(void *args);
  */
 void Can_Sdo_read_and_check(uint16_t can_id, uint16_t addr, uint8_t sub_addr);
 
-void *Pdo_logging_thread(void *args);
-
-/**
- * @brief starts a new thread that logs the PDO data received from the motor 
- * 
- */
-void start_Pdo_logging();
-
-void stop_Pdo_logging();
-
-void Can_Sdo_write_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr, uint32_t data);
-
-void Can_Sdo_read_and_check_while_Pdo_logging(uint16_t can_id, uint16_t addr, uint8_t sub_addr);
-
-int create_log_file();
+FILE* create_log_file(FILE *log_file_p);
 
 void *pdo_time_watcher(void *args);
 
 void get_Pdo_response(uint32_t *motor_current,
                       uint32_t *motor_position,
                       uint32_t *load_cell_voltage);
+
+
+void get_and_record_Pdo_response(uint32_t *motor_current,
+                                 uint32_t *motor_position,
+                                 uint32_t *load_cell_voltage,
+                                 int data_recording_active,
+                                 FILE *log_file_p);
 
 #endif // CAN_SEND_H
